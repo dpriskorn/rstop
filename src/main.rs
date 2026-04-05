@@ -149,6 +149,7 @@ fn main() {
     let _original_termios = enable_raw_mode();
     let mut paused = false;
     let mut advanced = false;
+    let mut help = false;
 
     loop {
         if let Some(key) = kbhit() {
@@ -156,6 +157,7 @@ fn main() {
                 b'q' | b'Q' | 0x1b => break,
                 b'p' | b'P' => paused = !paused,
                 b'a' | b'A' => advanced = !advanced,
+                b'h' | b'H' => help = !help,
                 _ => {}
             }
         }
@@ -167,14 +169,44 @@ fn main() {
         };
 
         if paused {
+            let help_marker = if help {
+                format!(" {CYAN}[HELP]{RESET}")
+            } else {
+                String::new()
+            };
+            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}", CYAN, args.interval, help_marker, pause_marker);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
+
+        if help {
             println!("\x1b[2J\x1b[H");
-            println!("{BOLD}{BLUE}HTOP_ZRAM{RESET}");
+            println!("{BOLD}{BLUE}HTOP_ZRAM - HELP{RESET}");
+            println!("\n{BOLD}{WHITE}ZRAM RATIO:{RESET}");
+            println!("  orig    = original data size before compression");
+            println!("  compr   = compressed size in zram");
+            println!("  ratio   = orig / compr (higher = better compression)");
+            println!("  saved   = orig - compr (actual RAM saved)");
+            println!("  {CYAN}Example:{RESET} ratio 4.0x means 1000MB compresses to 250MB");
+            println!("\n{BOLD}{WHITE}HEALTH SCORE:{RESET}");
+            println!("  Based on: RAM%, SWAP%, LOAD, ZRAM ratio");
+            println!("  {GREEN}85+  = EXCELLENT{RESET} - all normal");
+            println!("  {CYAN}70-84 = GOOD{RESET} - slight load");
+            println!("  {YELLOW}50-69 = OK{RESET} - elevated load");
+            println!("  {RED}0-49  = STRESSED{RESET} - high load");
+            println!("\n{BOLD}{WHITE}KEYS:{RESET}");
+            println!("  {WHITE}q/ESC = quit{RESET}");
+            println!("  {WHITE}p      = pause display{RESET}");
+            println!("  {WHITE}a      = advanced mode (shows health score, full zram){RESET}");
+            println!("  {WHITE}h      = toggle this help{RESET}");
+            println!("\n{BOLD}{CYAN}interval={}{}s{RESET}", CYAN, args.interval);
+            let help_marker = format!(" {CYAN}[HELP]{RESET}");
             let advanced_marker = if advanced {
                 format!(" {CYAN}[ADVANCED]{RESET}")
             } else {
                 String::new()
             };
-            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}", CYAN, args.interval, advanced_marker, pause_marker);
+            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
@@ -310,7 +342,12 @@ fn main() {
         } else {
             String::new()
         };
-        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}", CYAN, args.interval, advanced_marker, pause_marker);
+        let help_marker = if help {
+            format!(" {CYAN}[HELP]{RESET}")
+        } else {
+            String::new()
+        };
+        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
 
         std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
     }
