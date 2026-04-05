@@ -169,12 +169,19 @@ fn main() {
         };
 
         if paused {
+            println!("\x1b[2J\x1b[H");
+            println!("{BOLD}{BLUE}HTOP_ZRAM{RESET}");
             let help_marker = if help {
                 format!(" {CYAN}[HELP]{RESET}")
             } else {
                 String::new()
             };
-            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}", CYAN, args.interval, help_marker, pause_marker);
+            let advanced_marker = if advanced {
+                format!(" {CYAN}[ADVANCED]{RESET}")
+            } else {
+                String::new()
+            };
+            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
