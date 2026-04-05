@@ -151,6 +151,18 @@ fn main() {
     let mut advanced = false;
     let mut help = false;
 
+    let mut cpu = 0.0;
+    let mut mem_percent = 0.0;
+    let mut swap_percent = 0.0;
+    let mut load1 = 0.0;
+    let mut cores = 1;
+    let mut health = 100;
+    let mut label = "EXCELLENT";
+    let mut hcolor = GREEN;
+    let mut mcolor = GREEN;
+    let mut zram: Option<ZramStats> = None;
+    let mut procs: Vec<(sysinfo::Pid, String, f32, u64)> = Vec::new();
+
     loop {
         if let Some(key) = kbhit() {
             match key {
@@ -162,29 +174,58 @@ fn main() {
             }
         }
 
+        if !paused {
+            sys.refresh_all();
+            cpu = sys.global_cpu_usage();
+            let total_mem = sys.total_memory();
+            let used_mem = sys.used_memory();
+            let total_swap = sys.total_swap();
+            let used_swap = sys.used_swap();
+            cores = sys.cpus().len();
+            load1 = fs::read_to_string("/proc/loadavg")
+                .ok()
+                .and_then(|s| s.split_whitespace().next().map(|w| w.to_string()))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0.0);
+
+            mem_percent = if total_mem > 0 {
+                (used_mem as f32 / total_mem as f32) * 100.0
+            } else {
+                0.0
+            };
+            swap_percent = if total_swap > 0 {
+                (used_swap as f32 / total_swap as f32) * 100.0
+            } else {
+                0.0
+            };
+
+            zram = get_zram();
+
+            health = system_health(mem_percent, swap_percent, load1, &zram, cores);
+            label = health_label(health);
+            hcolor = health_color(health);
+            mcolor = mem_color(mem_percent);
+
+            procs = sys
+                .processes()
+                .iter()
+                .map(|(pid, p)| {
+                    (
+                        *pid,
+                        p.name().to_string_lossy().into_owned(),
+                        p.cpu_usage(),
+                        p.memory(),
+                    )
+                })
+                .collect();
+            procs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        }
+
         let pause_marker = if paused {
             format!(" {YELLOW}[PAUSED]{RESET}")
         } else {
             String::new()
         };
-
-        if paused {
-            println!("\x1b[2J\x1b[H");
-            println!("{BOLD}{BLUE}HTOP_ZRAM{RESET}");
-            let help_marker = if help {
-                format!(" {CYAN}[HELP]{RESET}")
-            } else {
-                String::new()
-            };
-            let advanced_marker = if advanced {
-                format!(" {CYAN}[ADVANCED]{RESET}")
-            } else {
-                String::new()
-            };
-            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            continue;
-        }
 
         if help {
             println!("\x1b[2J\x1b[H");
@@ -217,38 +258,6 @@ fn main() {
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
-
-        sys.refresh_all();
-
-        let cpu = sys.global_cpu_usage();
-        let total_mem = sys.total_memory();
-        let used_mem = sys.used_memory();
-        let total_swap = sys.total_swap();
-        let used_swap = sys.used_swap();
-        let cores = sys.cpus().len();
-        let load1: f64 = fs::read_to_string("/proc/loadavg")
-            .ok()
-            .and_then(|s| s.split_whitespace().next().map(|w| w.to_string()))
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-
-        let mem_percent = if total_mem > 0 {
-            (used_mem as f32 / total_mem as f32) * 100.0
-        } else {
-            0.0
-        };
-        let swap_percent = if total_swap > 0 {
-            (used_swap as f32 / total_swap as f32) * 100.0
-        } else {
-            0.0
-        };
-
-        let zram = get_zram();
-
-        let health = system_health(mem_percent, swap_percent, load1, &zram, cores);
-        let label = health_label(health);
-        let hcolor = health_color(health);
-        let mcolor = mem_color(mem_percent);
 
         println!("\x1b[2J\x1b[H");
         println!("{BOLD}{BLUE}HTOP_ZRAM{RESET}");
@@ -288,7 +297,6 @@ fn main() {
                 hcolor, hcolor, label
             );
         }
-
         if let Some(z) = &zram {
             let ratio = if z.compr > 0 {
                 z.orig as f64 / z.compr as f64
@@ -298,8 +306,7 @@ fn main() {
             let rcolor = if ratio > 2.0 { CYAN } else { GREEN };
             if advanced {
                 let saved = z.orig.saturating_sub(z.compr);
-                println!("{BOLD}{0}ZRAM:{RESET} {1}{2:.1}MB compr={3:.1}MB mem={4:.1}MB ratio={5}{6:.2}x saved={7:.1}MB",
-                    MAGENTA, MAGENTA, z.orig as f64 / 1024.0 / 1024.0, z.compr as f64 / 1024.0 / 1024.0, z.mem as f64 / 1024.0 / 1024.0, rcolor, ratio, saved as f64 / 1024.0 / 1024.0);
+                println!("{BOLD}{0}ZRAM:{RESET} {1}{2:.1}MB compr={3:.1}MB mem={4:.1}MB ratio={5}{6:.2}x saved={7:.1}MB", MAGENTA, MAGENTA, z.orig as f64 / 1024.0 / 1024.0, z.compr as f64 / 1024.0 / 1024.0, z.mem as f64 / 1024.0 / 1024.0, rcolor, ratio, saved as f64 / 1024.0 / 1024.0);
             } else {
                 println!(
                     "{BOLD}{0}ZRAM:{RESET} ratio={1}{2:.2}x{RESET}",
@@ -307,54 +314,41 @@ fn main() {
                 );
             }
         }
-
         println!("\n{BOLD}{WHITE}Top processes:{RESET}");
-
-        let mut procs: Vec<_> = sys
-            .processes()
-            .iter()
-            .map(|(pid, p)| {
-                (
-                    *pid,
-                    p.name().to_string_lossy().into_owned(),
-                    p.cpu_usage(),
-                    p.memory(),
-                )
-            })
-            .collect();
-
-        procs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-
         println!(
             "{:<6}  {:>6}  {:>8}  {:>30}",
             "PID", "CPU%", "MEM(GB)", "NAME"
         );
-        for (pid, name, cpu, mem) in procs.into_iter().take(10) {
+        for (pid, name, cpu, mem) in procs.iter().take(10) {
             let display_name: String = if name.len() > 30 {
                 name.chars().take(30).collect()
             } else {
-                name
+                name.clone()
             };
             println!(
                 "{:<6}  {:>6}  {:>8}  {:>30}",
                 pid,
                 cpu.round() as u64,
-                (mem as f64 / 1024.0 / 1024.0).round() as u64,
+                (*mem as f64 / 1024.0 / 1024.0).round() as u64,
                 display_name
             );
         }
-
-        let advanced_marker = if advanced {
-            format!(" {CYAN}[ADVANCED]{RESET}")
-        } else {
-            String::new()
-        };
         let help_marker = if help {
             format!(" {CYAN}[HELP]{RESET}")
         } else {
             String::new()
         };
+        let advanced_marker = if advanced {
+            format!(" {CYAN}[ADVANCED]{RESET}")
+        } else {
+            String::new()
+        };
         println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
+
+        if paused {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
 
         std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
     }
