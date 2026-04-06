@@ -201,6 +201,10 @@ fn main() {
                     renice_mode = !renice_mode;
                     renice_sel = 0;
                     renice_signal = 9;
+                    paused = false;
+                    if renice_mode {
+                        continue;
+                    }
                 }
                 b'\n' | b'\r' => {
                     if renice_mode && renice_sel < 10 {
@@ -217,7 +221,9 @@ fn main() {
             }
         }
 
-        if !paused && !renice_mode {
+        let key_pressed = key.is_some();
+
+        if !paused && !renice_mode || key_pressed {
             sys.refresh_all();
             cpu = sys.global_cpu_usage();
             let total_mem = sys.total_memory();
@@ -271,6 +277,11 @@ fn main() {
             procs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         }
 
+        if renice_mode && !key_pressed {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
+
         let pause_marker = if paused {
             format!(" {YELLOW}[PAUSED]{RESET}")
         } else {
@@ -279,7 +290,7 @@ fn main() {
 
         if help {
             println!("\x1b[2J\x1b[H");
-            println!("{BOLD}{BLUE}HTOP_ZRAM - HELP{RESET}");
+            println!("{BOLD}{BLUE}HELP{RESET}");
             println!("\n{BOLD}{WHITE}ZRAM RATIO:{RESET}");
             println!("  orig    = original data size before compression");
             println!("  compr   = compressed size in zram");
@@ -311,7 +322,7 @@ fn main() {
         }
 
         println!("\x1b[2J\x1b[H");
-        println!("{BOLD}{BLUE}HTOP_ZRAM{RESET}");
+        println!("{BOLD}{BLUE}RTOP{RESET}");
         println!(
             "{BOLD}{CYAN}CPU:{RESET}   {}{:.0}%{RESET}",
             if cpu > 80.0 { RED } else { WHITE },
@@ -465,9 +476,11 @@ fn main() {
             if !renice_mode {
                 continue;
             }
+        } else if renice_mode {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        } else {
+            std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
         }
-
-        std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
     }
 
     disable_raw_mode(&_original_termios);
