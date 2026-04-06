@@ -78,17 +78,14 @@ fn main() {
         let key = input.read_key();
 
         if let Some(k) = key {
-            eprintln!("DEBUG key: {} (hex {:02x})", k, k);
             logger.debug(&format!("Key pressed: {}", k));
 
             match k {
                 b'p' => {
-                    eprintln!("DEBUG: matched p key, paused was {}", paused);
                     paused = !paused;
                     logger.info(&format!("Pause toggled: {}", paused));
                 }
                 b'q' => {
-                    eprintln!("DEBUG: matched q key");
                     break;
                 }
                 0x1b => {
