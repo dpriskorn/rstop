@@ -1,4 +1,5 @@
 use clap::Parser;
+use prettytable::{row, table};
 use std::fs;
 use sysinfo::System;
 
@@ -150,6 +151,9 @@ fn main() {
     let mut paused = false;
     let mut advanced = false;
     let mut help = false;
+    let mut renice_mode = false;
+    let mut renice_sel: usize = 0;
+    let mut renice_signal = 9;
 
     let mut cpu = 0.0;
     let mut mem_percent = 0.0;
@@ -162,19 +166,58 @@ fn main() {
     let mut mcolor = GREEN;
     let mut zram: Option<ZramStats> = None;
     let mut procs: Vec<(sysinfo::Pid, String, f32, u64)> = Vec::new();
+    let mut load1 = 0.0;
+    let mut load5 = 0.0;
+    let mut load10 = 0.0;
 
     loop {
-        if let Some(key) = kbhit() {
-            match key {
-                b'q' | b'Q' | 0x1b => break,
+        let key = kbhit();
+
+        if let Some(k) = key {
+            match k {
+                b'q' | b'Q' => break,
+                0x1b => {
+                    if renice_mode {
+                        if kbhit() == Some(b'[') {
+                            match kbhit() {
+                                Some(b'A') => renice_sel = renice_sel.saturating_sub(1),
+                                Some(b'B') => renice_sel = (renice_sel + 1).min(9),
+                                Some(b'C') | Some(b'D') => {
+                                    renice_signal = if renice_signal == 9 { 15 } else { 9 }
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            renice_mode = false;
+                        }
+                    } else {
+                        break;
+                    }
+                }
                 b'p' | b'P' => paused = !paused,
                 b'a' | b'A' => advanced = !advanced,
                 b'h' | b'H' => help = !help,
+                b'r' | b'R' => {
+                    renice_mode = !renice_mode;
+                    renice_sel = 0;
+                    renice_signal = 9;
+                }
+                b'\n' | b'\r' => {
+                    if renice_mode && renice_sel < 10 {
+                        let (pid, _, _, _) = &procs[renice_sel];
+                        let sig = if renice_signal == 9 {
+                            libc::SIGKILL
+                        } else {
+                            libc::SIGTERM
+                        };
+                        unsafe { libc::kill(pid.as_u32() as i32, sig) };
+                    }
+                }
                 _ => {}
             }
         }
 
-        if !paused {
+        if !paused && !renice_mode {
             sys.refresh_all();
             cpu = sys.global_cpu_usage();
             let total_mem = sys.total_memory();
@@ -182,11 +225,18 @@ fn main() {
             let total_swap = sys.total_swap();
             let used_swap = sys.used_swap();
             cores = sys.cpus().len();
-            load1 = fs::read_to_string("/proc/loadavg")
+            let loadvals: Vec<f64> = fs::read_to_string("/proc/loadavg")
                 .ok()
-                .and_then(|s| s.split_whitespace().next().map(|w| w.to_string()))
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0.0);
+                .map(|s| {
+                    s.split_whitespace()
+                        .take(3)
+                        .filter_map(|w| w.parse().ok())
+                        .collect()
+                })
+                .unwrap_or_else(|| vec![0.0, 0.0, 0.0]);
+            load1 = loadvals.get(0).copied().unwrap_or(0.0);
+            load5 = loadvals.get(1).copied().unwrap_or(0.0);
+            load10 = loadvals.get(2).copied().unwrap_or(0.0);
 
             mem_percent = if total_mem > 0 {
                 (used_mem as f32 / total_mem as f32) * 100.0
@@ -247,6 +297,7 @@ fn main() {
             println!("  {WHITE}p      = pause display{RESET}");
             println!("  {WHITE}a      = advanced mode (shows health score, full zram){RESET}");
             println!("  {WHITE}h      = toggle this help{RESET}");
+            println!("  {WHITE}r      = renice mode (select process to kill){RESET}");
             println!("\n{BOLD}{CYAN}interval={}{}s{RESET}", CYAN, args.interval);
             let help_marker = format!(" {CYAN}[HELP]{RESET}");
             let advanced_marker = if advanced {
@@ -276,7 +327,7 @@ fn main() {
             swap_percent
         );
         println!(
-            "{BOLD}{CYAN}LOAD:{RESET}  {}{:.2}{RESET}",
+            "{BOLD}{CYAN}AVG. LOAD:{RESET}  {}{:.2}{RESET}",
             if load1 > cores as f64 * 1.5 {
                 RED
             } else if load1 > cores as f64 {
@@ -286,6 +337,26 @@ fn main() {
             },
             load1
         );
+        if advanced {
+            let load5_color = if load5 > cores as f64 * 1.5 {
+                RED
+            } else if load5 > cores as f64 {
+                YELLOW
+            } else {
+                CYAN
+            };
+            let load10_color = if load10 > cores as f64 * 1.5 {
+                RED
+            } else if load10 > cores as f64 {
+                YELLOW
+            } else {
+                CYAN
+            };
+            println!(
+                "{BOLD}{CYAN}     5m:{RESET}  {}{:.2}{RESET}  {BOLD}{CYAN}10m:{RESET} {}{:.2}{RESET}",
+                load5_color, load5, load10_color, load10
+            );
+        }
         if advanced {
             print!(
                 "{BOLD}{0}HEALTH:{RESET} {1}{2}/100 [{3}{4}{RESET}]\n",
@@ -315,23 +386,62 @@ fn main() {
             }
         }
         println!("\n{BOLD}{WHITE}Top processes:{RESET}");
-        println!(
-            "{:<6}  {:>6}  {:>8}  {:>30}",
-            "PID", "CPU%", "MEM(GB)", "NAME"
-        );
-        for (pid, name, cpu, mem) in procs.iter().take(10) {
+        let mut table = table!([" ", "TID", "CPU%", "MEM(MB)", "COMMAND"]);
+        use prettytable::format::consts::FORMAT_CLEAN;
+        table.set_format(*FORMAT_CLEAN);
+        for (i, (tid, name, cpu, mem)) in procs.iter().take(10).enumerate() {
             let display_name: String = if name.len() > 30 {
                 name.chars().take(30).collect()
             } else {
                 name.clone()
             };
-            println!(
-                "{:<6}  {:>6}  {:>8}  {:>30}",
-                pid,
-                cpu.round() as u64,
-                (*mem as f64 / 1024.0 / 1024.0).round() as u64,
+            let selected = renice_mode && i == renice_sel;
+            let marker = if selected {
+                format!("{GREEN}>{RESET}")
+            } else {
+                format!(" ")
+            };
+            let display_name: String = if name.len() > 30 {
+                name.chars().take(30).collect()
+            } else {
+                name.clone()
+            };
+            let display_name = if selected {
+                format!("{BOLD}{}{RESET}", display_name)
+            } else {
                 display_name
-            );
+            };
+            table.add_row(row![
+                marker,
+                if selected {
+                    format!("{BOLD}{}{RESET}", tid)
+                } else {
+                    tid.to_string()
+                },
+                if selected {
+                    format!("{BOLD}{}{RESET}", cpu.round() as u64)
+                } else {
+                    cpu.round().to_string()
+                },
+                if selected {
+                    format!(
+                        "{BOLD}{}{RESET}",
+                        (*mem as f64 / 1024.0 / 1024.0).round() as u64
+                    )
+                } else {
+                    ((*mem as f64 / 1024.0 / 1024.0).round() as u64).to_string()
+                },
+                display_name
+            ]);
+        }
+        table.printstd();
+        if renice_mode {
+            let sig_display = if renice_signal == 9 {
+                format!("{RED}9=kill{RESET}")
+            } else {
+                format!("{GREEN}15=term{RESET}")
+            };
+            println!("\n{BOLD}{YELLOW}RENICE MODE:{RESET} signal={}  {CYAN}up/down=select  left/right=toggle signal  enter=send{RESET}", sig_display);
         }
         let help_marker = if help {
             format!(" {CYAN}[HELP]{RESET}")
@@ -343,11 +453,18 @@ fn main() {
         } else {
             String::new()
         };
-        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
+        let renice_marker = if renice_mode {
+            format!(" {YELLOW}[RENICE]{RESET}")
+        } else {
+            String::new()
+        };
+        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}r=renice{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, renice_marker, pause_marker);
 
         if paused {
             std::thread::sleep(std::time::Duration::from_millis(100));
-            continue;
+            if !renice_mode {
+                continue;
+            }
         }
 
         std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));

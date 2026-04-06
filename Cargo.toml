@@ -7,3 +7,4 @@ edition = "2024"
 clap = { version = "4.5", features = ["derive"] }
 sysinfo = "0.32"
 libc = "0.2"
+prettytable = "0.10"
