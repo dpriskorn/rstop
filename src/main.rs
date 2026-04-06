@@ -155,11 +155,14 @@ fn main() {
                         let proc = &frozen_procs[renice_mode.selection];
                         let is_root = unsafe { libc::geteuid() } == 0;
                         if renice_mode.nice_value < 1 && !is_root {
-                            error_msg = Some("Failed to renice, permission error".to_string());
+                            error_msg = Some(
+                                "Cannot lower nice value - run as root to increase priority"
+                                    .to_string(),
+                            );
                             error_until =
                                 Some(std::time::Instant::now() + std::time::Duration::from_secs(5));
                             logger.error(&format!(
-                                "Failed renice: PID {} name='{}' current_nice={} target_nice={} - need root for nice < 1",
+                                "Failed renice: PID {} name='{}' current_nice={} target_nice={} - cannot lower nice without root",
                                 proc.pid, proc.name, proc.nice, renice_mode.nice_value
                             ));
                             renice_mode.deactivate();
@@ -172,13 +175,16 @@ fn main() {
                                 )
                             };
                             if result != 0 {
-                                error_msg = Some("Failed to renice, permission error".to_string());
+                                error_msg = Some(
+                                    "Cannot lower nice value - run as root to increase priority"
+                                        .to_string(),
+                                );
                                 error_until = Some(
                                     std::time::Instant::now() + std::time::Duration::from_secs(5),
                                 );
                                 let errno_val = unsafe { *libc::__errno_location() };
                                 logger.error(&format!(
-                                    "Failed renice: PID {} name='{}' current_nice={} target_nice={} errno={}",
+                                    "Failed renice: PID {} name='{}' current_nice={} target_nice={} errno={} - cannot lower nice without root",
                                     proc.pid, proc.name, proc.nice, renice_mode.nice_value, errno_val
                                 ));
                             } else {
