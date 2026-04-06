@@ -102,7 +102,7 @@ impl TerminalUI {
         println!("{}{}", Colors::RED, message);
     }
 
-    pub fn print_help(&self, interval: f64, advanced: bool, paused: bool) {
+    pub fn print_help(&self, interval: f64, _advanced: bool, _paused: bool) {
         self.clear_screen();
         println!("{}{}HELP{}", Colors::BOLD, Colors::BLUE, Colors::RESET);
         println!(
@@ -165,6 +165,7 @@ impl TerminalUI {
         KeyboardCommands::new().print_line(interval);
     }
 
+    #[allow(dead_code)]
     pub fn print_keys(
         &self,
         interval: f64,

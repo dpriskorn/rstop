@@ -15,6 +15,7 @@ impl KeyboardCommands {
         );
     }
 
+    #[allow(dead_code)]
     fn build_markers(
         &self,
         advanced: bool,
@@ -42,6 +43,7 @@ impl KeyboardCommands {
         markers
     }
 
+    #[allow(dead_code)]
     pub fn print(
         &self,
         interval: f64,

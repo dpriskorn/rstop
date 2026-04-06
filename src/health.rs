@@ -1,4 +1,5 @@
 pub struct HealthFactors {
+    #[allow(dead_code)]
     pub mem_penalty: i32,
     pub swap_penalty: i32,
     pub load_penalty: i32,
@@ -12,32 +13,29 @@ impl HealthFactors {
         zram_ratio: f64,
         cores: usize,
     ) -> HealthFactors {
-        let mut mem_penalty = 0;
-        let mut swap_penalty = 0;
-        let mut load_penalty = 0;
-        let mut zram_penalty = 0;
-
-        if disk_swap_percent > 1.0 {
-            swap_penalty = 50;
-        }
+        let swap_penalty = if disk_swap_percent > 1.0 { 50 } else { 0 };
 
         let cores = cores as f64;
-        if load1 > cores * 1.5 {
-            load_penalty = 25;
+        let load_penalty = if load1 > cores * 1.5 {
+            25
         } else if load1 > cores {
-            load_penalty = 10;
-        }
+            10
+        } else {
+            0
+        };
 
-        if zram_ratio > 0.0 && zram_ratio < 1.5 {
-            zram_penalty = -10;
+        let zram_penalty = if zram_ratio > 0.0 && zram_ratio < 1.5 {
+            -10
         } else if zram_ratio >= 1.5 && zram_ratio < 2.0 {
-            zram_penalty = -5;
+            -5
         } else if zram_ratio > 3.0 {
-            zram_penalty = 5;
-        }
+            5
+        } else {
+            0
+        };
 
         HealthFactors {
-            mem_penalty,
+            mem_penalty: 0,
             swap_penalty,
             load_penalty,
             zram_penalty,

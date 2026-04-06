@@ -3,6 +3,7 @@ use sysinfo::System;
 
 pub struct SystemStats {
     pub cpu: f32,
+    #[allow(dead_code)]
     pub mem_percent: f32,
     pub zram_swap_percent: f32,
     pub disk_swap_percent: f32,

@@ -394,7 +394,7 @@ fn main() {
         logger.log_timed("UI render", start);
 
         if skip_render {
-            std::thread::sleep(std::time::Duration::from_millis(20));
+            std::thread::sleep(std::time::Duration::from_millis(50));
             continue;
         }
 
