@@ -2,6 +2,8 @@ use clap::Parser;
 use std::time::Instant;
 
 mod color;
+mod config;
+mod filter;
 mod input;
 mod keys;
 mod logger;
@@ -13,6 +15,8 @@ mod system_monitor;
 mod ui;
 mod zram_stats;
 
+use config::Config;
+use filter::ProcessFilter;
 use input::InputHandler;
 use keys::{KeyAction, Keys};
 use logger::Logger;
@@ -29,6 +33,10 @@ use zram_stats::ZramReader;
 struct Args {
     #[arg(short, long, default_value = "2.0")]
     interval: f64,
+    #[arg(short, long)]
+    min_cpu: Option<f64>,
+    #[arg(short, long, value_delimiter = ',')]
+    exclude: Vec<String>,
 }
 
 fn enable_raw_mode() -> libc::termios {
@@ -47,6 +55,11 @@ fn disable_raw_mode(termios: &libc::termios) {
 fn main() {
     let args = Args::parse();
     let logger = Logger::new();
+    let config = Config::load();
+
+    let (min_cpu, exclude_names, interval) =
+        config.merge_with_args(args.min_cpu, args.exclude, args.interval);
+    let refresh_interval = interval;
 
     logger.info("Starting RTOP");
 
@@ -56,6 +69,7 @@ fn main() {
     let keys = Keys::new();
     let mut monitor = SystemMonitor::new();
     let mut process_list = ProcessList::new();
+    let mut process_filter = ProcessFilter::new(min_cpu, exclude_names);
     let zram_reader = ZramReader::new();
     let ui = TerminalUI::new();
 
@@ -239,7 +253,7 @@ fn main() {
 
         if help_mode.active {
             ui.clear_screen();
-            ui.print_help(args.interval, advanced, pause_mode.active);
+            ui.print_help(refresh_interval, advanced, pause_mode.active);
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
@@ -268,7 +282,8 @@ fn main() {
         let procs: Vec<&ProcessInfo> = if renice_mode.active || kill_mode.active {
             frozen_procs.iter().collect()
         } else {
-            process_list.top_by_cpu(10)
+            let all_procs = process_list.top_by_cpu(30);
+            process_filter.filter_owned(all_procs)
         };
 
         ui.print_process_list(
@@ -287,7 +302,7 @@ fn main() {
         }
 
         ui.print_footer(
-            args.interval,
+            refresh_interval,
             advanced,
             help_mode.active,
             pause_mode.active,
@@ -300,7 +315,7 @@ fn main() {
         if pause_mode.active || renice_mode.active || kill_mode.active {
             std::thread::sleep(std::time::Duration::from_millis(100));
         } else {
-            std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
+            std::thread::sleep(std::time::Duration::from_secs_f64(refresh_interval));
         }
     }
 
