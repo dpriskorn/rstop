@@ -95,7 +95,7 @@ impl ColorScheme {
         } else if load > medium {
             Colors::YELLOW
         } else {
-            Colors::WHITE
+            Colors::GREEN
         }
     }
 
@@ -113,9 +113,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_color_for_load_white() {
+    fn test_color_for_load_green() {
         let colors = ColorScheme::global();
-        assert_eq!(colors.color_for_load(1.0, 4), Colors::WHITE);
+        assert_eq!(colors.color_for_load(1.0, 4), Colors::GREEN);
     }
 
     #[test]
