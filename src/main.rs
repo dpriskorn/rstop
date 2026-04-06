@@ -330,13 +330,21 @@ fn main() {
     loop {
         let key = tui.poll_event();
 
-        if key.is_some() {
-            app.handle_key(key);
-            if !app.state.renice_active
-                && !app.state.kill_active
-                && !app.state.help_active
-                && !app.state.pause_active
-            {
+        if let Some(k) = key {
+            let action = app.keys.handle_key(
+                Some(k),
+                app.state.renice_active,
+                app.state.kill_active,
+                app.state.help_active,
+                app.state.pause_active,
+                app.frozen_procs.len(),
+                &app.logger,
+            );
+
+            app.handle_key(Some(k));
+
+            // Only exit on Quit, not when actions execute (renice/kill)
+            if matches!(action, KeyAction::Quit) {
                 break;
             }
         }

@@ -355,6 +355,18 @@ impl TuiRenderer {
     }
 }
 
+impl Drop for TuiRenderer {
+    fn drop(&mut self) {
+        let _ = execute!(
+            self.terminal.backend_mut(),
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0)
+        );
+        let _ = terminal::disable_raw_mode();
+        let _ = execute!(self.terminal.backend_mut(), cursor::Show);
+    }
+}
+
 impl Default for TuiRenderer {
     fn default() -> Self {
         Self::new().unwrap()
