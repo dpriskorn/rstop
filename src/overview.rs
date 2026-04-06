@@ -56,9 +56,9 @@ impl OverviewTable {
                 ),
             },
             OverviewRow {
-                label: "FACTORS".to_string(),
+                label: "PENALTIES".to_string(),
                 value: format!(
-                    "{}{} {}{} {}{} {}{}",
+                    "mem={}{}{} swap={}{}{} load={}{}{} zram={}{}",
                     if health_factors.mem_penalty > 0 {
                         Colors::RED
                     } else {
@@ -69,6 +69,7 @@ impl OverviewTable {
                     } else {
                         "0".to_string()
                     },
+                    Colors::RESET,
                     if health_factors.swap_penalty > 0 {
                         Colors::RED
                     } else {
@@ -79,6 +80,7 @@ impl OverviewTable {
                     } else {
                         "0".to_string()
                     },
+                    Colors::RESET,
                     if health_factors.load_penalty > 0 {
                         Colors::RED
                     } else {
@@ -89,6 +91,7 @@ impl OverviewTable {
                     } else {
                         "0".to_string()
                     },
+                    Colors::RESET,
                     if health_factors.zram_penalty != 0 {
                         if health_factors.zram_penalty > 0 {
                             Colors::RED

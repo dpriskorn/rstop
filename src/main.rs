@@ -22,6 +22,7 @@ use config::Config;
 use filter::ProcessFilter;
 use health::{HealthCalculator, HealthFactors};
 use input::InputHandler;
+use keyboard_commands::KeyboardCommands;
 use keys::{KeyAction, Keys};
 use logger::Logger;
 use modes::help::HelpMode;
@@ -336,6 +337,8 @@ fn main() {
         }
 
         ui.clear_screen();
+
+        KeyboardCommands::new().print_line(refresh_interval);
 
         let start = Instant::now();
         ui.print_header(
