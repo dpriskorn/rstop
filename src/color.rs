@@ -65,6 +65,14 @@ impl ColorScheme {
         }
     }
 
+    pub fn color_for_disk_swap(&self, value: f32) -> &'static str {
+        if value == 0.0 {
+            Colors::GREEN
+        } else {
+            Colors::RED
+        }
+    }
+
     pub fn color_for_health(&self, score: i32) -> &'static str {
         if score >= self.health_excellent {
             Colors::GREEN

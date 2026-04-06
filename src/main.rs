@@ -11,6 +11,7 @@ mod modes;
 mod overview;
 mod process_list;
 mod process_table_render;
+mod swap;
 mod system_monitor;
 mod ui;
 mod zram_stats;
@@ -82,7 +83,8 @@ fn main() {
 
     let mut cpu = 0.0;
     let mut mem_percent = 0.0;
-    let mut swap_percent = 0.0;
+    let mut zram_swap_percent = 0.0;
+    let mut disk_swap_percent = 0.0;
     let mut load1 = 0.0;
     let mut load5 = 0.0;
     let mut load10 = 0.0;
@@ -266,7 +268,8 @@ fn main() {
             let start = Instant::now();
             cpu = monitor.get_stats().cpu;
             mem_percent = monitor.get_stats().mem_percent;
-            swap_percent = monitor.get_stats().swap_percent;
+            zram_swap_percent = monitor.get_stats().zram_swap_percent;
+            disk_swap_percent = monitor.get_stats().disk_swap_percent;
             cores = monitor.get_stats().cores;
             (load1, load5, load10) = monitor.load_average();
             logger.log_timed("get stats", start);
@@ -284,8 +287,13 @@ fn main() {
                 .map(|z| zram_reader.compression_ratio(z))
                 .unwrap_or(0.0);
 
-            let (h, label) =
-                HealthCalculator::calculate(mem_percent, swap_percent, load1, zram_ratio, cores);
+            let (h, label) = HealthCalculator::calculate(
+                mem_percent,
+                zram_swap_percent,
+                load1,
+                zram_ratio,
+                cores,
+            );
             health = h;
             health_label = label;
         }
@@ -315,7 +323,8 @@ fn main() {
         ui.print_header(
             cpu,
             mem_percent,
-            swap_percent,
+            zram_swap_percent,
+            disk_swap_percent,
             load1,
             load5,
             load10,

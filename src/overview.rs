@@ -1,5 +1,12 @@
 use crate::color::{ColorScheme, Colors};
 use crate::zram_stats::{ZramReader, ZramStats};
+use tabled::{settings::Style, Table, Tabled};
+
+#[derive(Tabled)]
+pub struct OverviewRow {
+    pub label: String,
+    pub value: String,
+}
 
 pub struct OverviewTable;
 
@@ -12,7 +19,8 @@ impl OverviewTable {
         &self,
         cpu: f32,
         mem_percent: f32,
-        swap_percent: f32,
+        zram_swap_percent: f32,
+        disk_swap_percent: f32,
         load1: f64,
         load5: f64,
         load10: f64,
@@ -24,72 +32,77 @@ impl OverviewTable {
     ) {
         let colors = ColorScheme::global();
         let cpu_color = colors.color_for_cpu(cpu);
-        let swap_color = colors.color_for_swap(swap_percent);
+        let swap_color = colors.color_for_swap(zram_swap_percent);
+        let disk_swap_color = colors.color_for_disk_swap(disk_swap_percent);
         let load_color = colors.color_for_load(load1, cores);
         let load5_color = colors.color_for_load(load5, cores);
         let load10_color = colors.color_for_load(load10, cores);
         let health_color = colors.color_for_health(health);
 
-        println!("\n");
-        println!(
-            "{}HEALTH{}  {}{}/100 [{}]{}",
-            Colors::BOLD,
-            Colors::RESET,
-            health_color,
-            health,
-            health_label,
-            Colors::RESET
-        );
-        println!(
-            "{}CPU{}     {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::RESET,
-            cpu_color,
-            cpu,
-            Colors::RESET
-        );
-        println!(
-            "{}RAM{}     {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::RESET,
-            Colors::WHITE,
-            mem_percent,
-            Colors::RESET
-        );
+        let mut rows = vec![
+            OverviewRow {
+                label: "HEALTH".to_string(),
+                value: format!(
+                    "{}{}/100 [{}]{}",
+                    health_color,
+                    health,
+                    health_label,
+                    Colors::RESET
+                ),
+            },
+            OverviewRow {
+                label: "CPU".to_string(),
+                value: format!("{}{:.1}%{}", cpu_color, cpu, Colors::RESET),
+            },
+            OverviewRow {
+                label: "RAM".to_string(),
+                value: format!("{}{:.1}%{}", Colors::WHITE, mem_percent, Colors::RESET),
+            },
+        ];
 
         if let Some(z) = zram_stats {
             let ratio = zram_reader.compression_ratio(z);
             let ratio_color = colors.color_for_zram(ratio);
-            println!(
-                "{}ZRAM{}    {}{:.2}x{}",
-                Colors::BOLD,
-                Colors::RESET,
-                ratio_color,
-                ratio,
-                Colors::RESET
-            );
+            rows.push(OverviewRow {
+                label: "ZRAM".to_string(),
+                value: format!("{}{:.2}x{}", ratio_color, ratio, Colors::RESET),
+            });
         }
 
-        println!(
-            "{}SWAP{}    {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::RESET,
-            swap_color,
-            swap_percent,
-            Colors::RESET
-        );
-        println!(
-            "{}LOAD{}    {}{:.2}  {}{:.2}  {}{:.2}{}",
-            Colors::BOLD,
-            Colors::RESET,
+        rows.push(OverviewRow {
+            label: "SWAP(ZRAM)".to_string(),
+            value: format!("{}{:.1}%{}", swap_color, zram_swap_percent, Colors::RESET),
+        });
+        rows.push(OverviewRow {
+            label: "SWAP(SSD)".to_string(),
+            value: format!(
+                "{}{:.1}%{}",
+                disk_swap_color,
+                disk_swap_percent,
+                Colors::RESET
+            ),
+        });
+        let load_value = format!(
+            "{}{:.2}{}  {}{:.2}{}  {}{:.2}{}",
             load_color,
             load1,
+            Colors::RESET,
             load5_color,
             load5,
+            Colors::RESET,
             load10_color,
             load10,
             Colors::RESET
         );
+        rows.push(OverviewRow {
+            label: "LOAD".to_string(),
+            value: load_value,
+        });
+
+        println!("");
+        let mut table = Table::new(&rows);
+        table.with(Style::empty());
+        println!("{}", table);
     }
 }
 
@@ -114,7 +127,8 @@ mod tests {
         overview.print(
             50.0,
             60.0,
-            10.0,
+            0.0,
+            0.0,
             1.0,
             1.5,
             2.0,

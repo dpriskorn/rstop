@@ -1,9 +1,11 @@
+use crate::swap::SwapStats;
 use sysinfo::System;
 
 pub struct SystemStats {
     pub cpu: f32,
     pub mem_percent: f32,
-    pub swap_percent: f32,
+    pub zram_swap_percent: f32,
+    pub disk_swap_percent: f32,
     #[allow(dead_code)]
     pub load1: f64,
     #[allow(dead_code)]
@@ -29,6 +31,7 @@ impl SystemMonitor {
     }
 
     pub fn get_stats(&self) -> SystemStats {
+        let swap = SwapStats::read();
         SystemStats {
             cpu: self.sys.global_cpu_usage(),
             mem_percent: if self.sys.total_memory() > 0 {
@@ -36,11 +39,8 @@ impl SystemMonitor {
             } else {
                 0.0
             },
-            swap_percent: if self.sys.total_swap() > 0 {
-                (self.sys.used_swap() as f32 / self.sys.total_swap() as f32) * 100.0
-            } else {
-                0.0
-            },
+            zram_swap_percent: swap.zram.percent,
+            disk_swap_percent: swap.disk.percent,
             load1: 0.0,
             load5: 0.0,
             load10: 0.0,
