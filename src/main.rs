@@ -318,15 +318,6 @@ fn main() {
 
         ui.clear_screen();
 
-        ui.print_footer(
-            refresh_interval,
-            advanced,
-            help_mode.active,
-            pause_mode.active,
-            renice_mode.active,
-            kill_mode.active,
-        );
-
         let start = Instant::now();
         ui.print_header(
             cpu,
@@ -362,15 +353,6 @@ fn main() {
             renice_mode.selection,
             kill_mode.active,
             kill_mode.selection,
-        );
-
-        ui.print_footer(
-            refresh_interval,
-            advanced,
-            help_mode.active,
-            pause_mode.active,
-            renice_mode.active,
-            kill_mode.active,
         );
 
         if renice_mode.active {
