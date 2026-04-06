@@ -4,6 +4,7 @@ use sysinfo::{Pid, System};
 pub struct ProcessInfo {
     pub pid: Pid,
     pub name: String,
+    pub user: String,
     pub cpu: f32,
     pub mem: u64,
     pub time: u64,
@@ -28,9 +29,37 @@ impl ProcessList {
             .map(|(pid, p)| {
                 let nice =
                     unsafe { libc::getpriority(libc::PRIO_PROCESS, pid.as_u32() as libc::id_t) };
+                let user = p
+                    .user_id()
+                    .map(|uid| {
+                        let uid_val: u32 = **uid;
+                        let passwd = unsafe {
+                            let mut pw: libc::passwd = std::mem::zeroed();
+                            let mut buf: Vec<u8> = vec![0; 1024];
+                            let mut result: *mut libc::passwd = std::ptr::null_mut();
+                            let ret = libc::getpwuid_r(
+                                uid_val,
+                                &mut pw,
+                                buf.as_mut_ptr() as *mut libc::c_char,
+                                buf.len(),
+                                &mut result,
+                            );
+                            if ret == 0 && !result.is_null() {
+                                std::ffi::CStr::from_ptr(pw.pw_name)
+                                    .to_string_lossy()
+                                    .into_owned()
+                                    .to_lowercase()
+                            } else {
+                                uid_val.to_string()
+                            }
+                        };
+                        passwd
+                    })
+                    .unwrap_or_else(|| "?".to_string());
                 ProcessInfo {
                     pid: *pid,
                     name: p.name().to_string_lossy().into_owned(),
+                    user,
                     cpu: p.cpu_usage(),
                     mem: p.memory(),
                     time: p.start_time(),

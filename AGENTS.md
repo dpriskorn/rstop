@@ -90,3 +90,19 @@ let cpu_color = colors.color_for_percent(cpu, threshold);
 - Use Rust's built-in `#[test]` attribute
 - Run tests with `cargo test`
 - **Coverage target: >80%** - Ensure most modules have tests
+
+## Build Commands
+
+- **Always run `cargo build` first** before running the app with `./target/debug/rstop`
+- These are two separate commands - build first, then run
+- Do not combine them with `&&` unless explicitly requested
+
+## Debugging
+
+- Add timing instrumentation to identify slow operations
+- Example: `let start = Instant::now(); ... logger.log_timed("Operation", start);`
+
+## Rules
+
+- **NEVER use println/eprintln** - always ask first before using any print statements
+- Use debug.log via Logger for debugging instead

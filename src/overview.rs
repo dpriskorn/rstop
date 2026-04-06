@@ -102,11 +102,11 @@ impl OverviewTable {
             value: load_value,
         });
 
-        println!("");
         let mut table = Table::new(&rows);
         table.with(Style::empty());
         table.with(Remove::row(Rows::first()));
-        println!("{}", table);
+        println!();
+        print!("{}", table);
     }
 }
 

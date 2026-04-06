@@ -218,12 +218,11 @@ fn main() {
                     }
                 }
                 KeyAction::NavigateDown => {
-                    if renice_mode.active {
+                    if renice_mode.active && !frozen_procs.is_empty() {
                         renice_mode.selection =
-                            (renice_mode.selection + 1).min(frozen_procs.len().saturating_sub(1));
-                    } else if kill_mode.active {
-                        kill_mode.selection =
-                            (kill_mode.selection + 1).min(frozen_procs.len().saturating_sub(1));
+                            (renice_mode.selection + 1).min(frozen_procs.len() - 1);
+                    } else if kill_mode.active && !frozen_procs.is_empty() {
+                        kill_mode.selection = (kill_mode.selection + 1).min(frozen_procs.len() - 1);
                     }
                 }
                 KeyAction::NiceValueUp => {
@@ -319,6 +318,15 @@ fn main() {
 
         ui.clear_screen();
 
+        ui.print_footer(
+            refresh_interval,
+            advanced,
+            help_mode.active,
+            pause_mode.active,
+            renice_mode.active,
+            kill_mode.active,
+        );
+
         let start = Instant::now();
         ui.print_header(
             cpu,
@@ -356,13 +364,6 @@ fn main() {
             kill_mode.selection,
         );
 
-        if renice_mode.active {
-            ui.print_renice_status(renice_mode.nice_value);
-        }
-        if kill_mode.active {
-            ui.print_kill_status(kill_mode.signal);
-        }
-
         ui.print_footer(
             refresh_interval,
             advanced,
@@ -371,6 +372,13 @@ fn main() {
             renice_mode.active,
             kill_mode.active,
         );
+
+        if renice_mode.active {
+            ui.print_renice_status(renice_mode.nice_value);
+        }
+        if kill_mode.active {
+            ui.print_kill_status(kill_mode.signal);
+        }
 
         if let Some(err) = &error_msg {
             if let Some(until) = error_until {
