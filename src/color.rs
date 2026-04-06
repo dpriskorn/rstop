@@ -23,8 +23,6 @@ pub struct ColorScheme {
     pub load_medium: f64,
     pub cpu_excellent: f32,
     pub cpu_good: f32,
-    pub swap_excellent: f32,
-    pub swap_good: f32,
 }
 
 impl ColorScheme {
@@ -39,8 +37,6 @@ impl ColorScheme {
             load_medium: 1.0,
             cpu_excellent: 50.0,
             cpu_good: 80.0,
-            swap_excellent: 20.0,
-            swap_good: 50.0,
         };
         &INSTANCE
     }
@@ -55,10 +51,10 @@ impl ColorScheme {
         }
     }
 
-    pub fn color_for_swap(&self, value: f32) -> &'static str {
-        if value <= self.swap_excellent {
+    pub fn color_for_zram_swap(&self, value: f32) -> &'static str {
+        if value <= 50.0 {
             Colors::GREEN
-        } else if value <= self.swap_good {
+        } else if value <= 80.0 {
             Colors::YELLOW
         } else {
             Colors::RED
@@ -66,7 +62,7 @@ impl ColorScheme {
     }
 
     pub fn color_for_disk_swap(&self, value: f32) -> &'static str {
-        if value == 0.0 {
+        if value <= 1.0 {
             Colors::GREEN
         } else {
             Colors::RED

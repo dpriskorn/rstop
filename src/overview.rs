@@ -35,7 +35,7 @@ impl OverviewTable {
     ) {
         let colors = ColorScheme::global();
         let cpu_color = colors.color_for_cpu(cpu);
-        let swap_color = colors.color_for_swap(zram_swap_percent);
+        let swap_color = colors.color_for_zram_swap(zram_swap_percent);
         let disk_swap_color = colors.color_for_disk_swap(disk_swap_percent);
         let load_color = colors.color_for_load(load1, cores);
         let load5_color = colors.color_for_load(load5, cores);
