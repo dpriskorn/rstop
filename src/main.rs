@@ -158,7 +158,7 @@ fn main() {
                             error_msg = Some("Failed to renice, permission error".to_string());
                             error_until =
                                 Some(std::time::Instant::now() + std::time::Duration::from_secs(5));
-                            logger.info(&format!(
+                            logger.error(&format!(
                                 "Failed renice: PID {} name='{}' current_nice={} target_nice={} - need root for nice < 1",
                                 proc.pid, proc.name, proc.nice, renice_mode.nice_value
                             ));
@@ -177,7 +177,7 @@ fn main() {
                                     std::time::Instant::now() + std::time::Duration::from_secs(5),
                                 );
                                 let errno_val = unsafe { *libc::__errno_location() };
-                                logger.info(&format!(
+                                logger.error(&format!(
                                     "Failed renice: PID {} name='{}' current_nice={} target_nice={} errno={}",
                                     proc.pid, proc.name, proc.nice, renice_mode.nice_value, errno_val
                                 ));
