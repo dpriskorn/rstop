@@ -23,6 +23,7 @@ impl ProcessFilter {
         self.min_cpu = min_cpu;
     }
 
+    #[allow(dead_code)]
     pub fn filter_owned(&self, processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
         processes
             .into_iter()
