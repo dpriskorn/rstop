@@ -1,8 +1,13 @@
+use crate::color::Colors;
 use crate::process_list::ProcessInfo;
 use std::fmt;
-use tabled::{settings::Style, Table, Tabled};
+use tabled::{
+    settings::object::Rows,
+    settings::{Format, Modify, Style},
+    Table, Tabled,
+};
 
-pub struct MaybeEmpty<T>(Option<T>);
+pub struct MaybeEmpty<T>(pub Option<T>);
 
 impl<T: fmt::Display> fmt::Display for MaybeEmpty<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -45,24 +50,37 @@ impl ProcessTable {
             .iter()
             .enumerate()
             .map(|(i, p)| {
-                let selected = (renice_active && i == renice_sel) || (kill_active && i == kill_sel);
                 let mem_mb = (p.mem as f64 / 1024.0 / 1024.0).round() as u64;
                 let time_min = p.time / 60;
+                let name = if p.name.len() > 20 {
+                    p.name.chars().take(20).collect()
+                } else {
+                    p.name.clone()
+                };
+
                 Row {
-                    m: if selected { ">" } else { " " },
+                    m: if (renice_active && renice_sel == i) || (kill_active && kill_sel == i) {
+                        ">"
+                    } else {
+                        " "
+                    },
                     pid: MaybeEmpty(Some(p.pid.as_u32())),
                     ni: MaybeEmpty(Some(p.nice)),
                     cpu: MaybeEmpty(Some(p.cpu.round() as u64)),
                     mem: MaybeEmpty(Some(mem_mb)),
                     time: MaybeEmpty(Some(time_min)),
-                    name: if p.name.len() > 20 {
-                        p.name.chars().take(20).collect()
-                    } else {
-                        p.name.clone()
-                    },
+                    name,
                 }
             })
             .collect();
+
+        let selected_row = if renice_active {
+            renice_sel
+        } else if kill_active {
+            kill_sel
+        } else {
+            usize::MAX
+        };
 
         let empty_rows = MAX_ROWS.saturating_sub(rows.len());
         let mut all_rows = rows;
@@ -78,11 +96,21 @@ impl ProcessTable {
             });
         }
 
-        if !all_rows.is_empty() {
-            let mut table = Table::new(&all_rows);
-            table.with(Style::empty());
-            println!("\n{}", table);
+        if all_rows.is_empty() {
+            return;
         }
+
+        let mut table = Table::new(&all_rows);
+        table.with(Style::empty());
+
+        if selected_row < all_rows.len() {
+            let sel = selected_row + 1;
+            table.with(Modify::new(Rows::new(sel..=sel)).with(Format::content(|s| {
+                format!("{}{}{}", Colors::BOLD, s, Colors::RESET)
+            })));
+        }
+
+        println!("\n{}", table);
     }
 }
 
