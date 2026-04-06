@@ -14,6 +14,7 @@ pub enum KeyAction {
     NiceValueDown,
     Signal9,
     Signal15,
+    ExitMode,
     None,
 }
 
@@ -101,6 +102,14 @@ impl Keys {
                     KeyAction::None
                 }
             }
+            Some(0x1b) => {
+                if renice_active || kill_active {
+                    logger.debug("Key: ExitMode");
+                    KeyAction::ExitMode
+                } else {
+                    KeyAction::None
+                }
+            }
             _ => KeyAction::None,
         }
     }
@@ -149,6 +158,26 @@ mod tests {
         assert!(matches!(
             keys.handle_key(Some(b'k'), false, false, 0, &logger),
             KeyAction::ActivateKill
+        ));
+    }
+
+    #[test]
+    fn test_handle_key_escape_exits_mode() {
+        let keys = Keys::new();
+        let logger = Logger::new();
+        assert!(matches!(
+            keys.handle_key(Some(0x1b), true, false, 5, &logger),
+            KeyAction::ExitMode
+        ));
+    }
+
+    #[test]
+    fn test_handle_key_escape_does_nothing_when_no_mode() {
+        let keys = Keys::new();
+        let logger = Logger::new();
+        assert!(matches!(
+            keys.handle_key(Some(0x1b), false, false, 0, &logger),
+            KeyAction::None
         ));
     }
 }

@@ -93,6 +93,11 @@ fn main() {
 
             match action {
                 KeyAction::Quit => break,
+                KeyAction::ExitMode => {
+                    renice_mode.deactivate();
+                    kill_mode.deactivate();
+                    logger.info("Mode deactivated");
+                }
                 KeyAction::TogglePause => {
                     pause_mode.toggle();
                     logger.info(&format!("Pause toggled: {}", pause_mode.active));
