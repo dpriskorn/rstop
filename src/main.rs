@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::time::Instant;
 
+mod color;
 mod input;
 mod logger;
 mod modes;
@@ -217,18 +218,22 @@ fn main() {
         ui.clear_screen();
 
         let start = Instant::now();
-        ui.print_header(cpu, mem_percent, swap_percent, load1, cores);
+        ui.print_header(
+            cpu,
+            mem_percent,
+            swap_percent,
+            load1,
+            load5,
+            load10,
+            cores,
+            health,
+            health_label,
+            zram_stats.as_ref(),
+            &zram_reader,
+        );
 
         if advanced {
-            ui.print_advanced_info(
-                load5,
-                load10,
-                cores,
-                health,
-                health_label,
-                zram_stats.as_ref(),
-                &zram_reader,
-            );
+            ui.print_advanced_info();
         }
 
         let procs: Vec<&ProcessInfo> = if renice_mode.active || kill_mode.active {

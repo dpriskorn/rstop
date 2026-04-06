@@ -1,4 +1,4 @@
-[2026-04-06 10:42:35.100] [    0.000][2026-04-06 10:42:35.100] [    0.000][2026-04-06 10:42:35.100] [    0.000] [ [INFO [ERROR] DEBUG] info message] error message
-debug message
+[2026-04-06 11:17:43.081] [    0.000][2026-04-06 11:17:43.081] [    0.000] [[2026-04-06 11:17:43.081] [    0.000] [ [ERROR[2026-04-06 11:17:43.081] [    0.000]DEBUGINFO]  [] ] error messageINFOdebug message] info message
 
-[2026-04-06 10:42:35.100] [    0.000] [INFO] test message
+test message
+

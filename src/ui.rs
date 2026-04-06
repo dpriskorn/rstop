@@ -1,20 +1,6 @@
+use crate::color::{ColorScheme, Colors};
 use crate::process_list::ProcessInfo;
 use crate::process_table_render::ProcessTable;
-
-pub struct Colors;
-
-impl Colors {
-    pub const RED: &'static str = "\x1b[91m";
-    pub const GREEN: &'static str = "\x1b[92m";
-    pub const YELLOW: &'static str = "\x1b[93m";
-    pub const BLUE: &'static str = "\x1b[94m";
-    #[allow(dead_code)]
-    pub const MAGENTA: &'static str = "\x1b[95m";
-    pub const CYAN: &'static str = "\x1b[96m";
-    pub const WHITE: &'static str = "\x1b[97m";
-    pub const BOLD: &'static str = "\x1b[1m";
-    pub const RESET: &'static str = "\x1b[0m";
-}
 
 pub struct TerminalUI;
 
@@ -27,89 +13,12 @@ impl TerminalUI {
         print!("{}\x1b[2J\x1b[H", Colors::RESET);
     }
 
-    fn color_for_load(&self, load: f64, cores: usize) -> &'static str {
-        if load > cores as f64 * 1.5 {
-            Colors::RED
-        } else if load > cores as f64 {
-            Colors::YELLOW
-        } else {
-            Colors::WHITE
-        }
-    }
-
-    fn color_for_percent(&self, value: f32, threshold: f32) -> &'static str {
-        if value > threshold {
-            Colors::RED
-        } else {
-            Colors::WHITE
-        }
-    }
-
-    fn color_for_health(&self, score: i32) -> &'static str {
-        if score >= 85 {
-            Colors::GREEN
-        } else if score >= 70 {
-            Colors::CYAN
-        } else if score >= 50 {
-            Colors::YELLOW
-        } else {
-            Colors::RED
-        }
-    }
-
     pub fn print_header(
         &self,
         cpu: f32,
         mem_percent: f32,
         swap_percent: f32,
         load1: f64,
-        cores: usize,
-    ) {
-        let cpu_color = self.color_for_percent(cpu, 80.0);
-        let swap_color = self.color_for_percent(swap_percent, 50.0);
-        let load_color = self.color_for_load(load1, cores);
-
-        print!(
-            "{}{}CPU:{}   {}{:.0}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            cpu_color,
-            cpu,
-            Colors::RESET
-        );
-        print!(
-            "{}{}RAM:{}   {}{:.0}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            Colors::WHITE,
-            mem_percent,
-            Colors::RESET
-        );
-        print!(
-            "{}{}SWAP:{}  {}{:.0}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            swap_color,
-            swap_percent,
-            Colors::RESET
-        );
-        println!(
-            "{}{}AVG. LOAD:{}  {}{:.2}{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            load_color,
-            load1,
-            Colors::RESET
-        );
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn print_advanced_info(
-        &self,
         load5: f64,
         load10: f64,
         cores: usize,
@@ -118,48 +27,82 @@ impl TerminalUI {
         zram_stats: Option<&crate::zram_stats::ZramStats>,
         zram_reader: &crate::zram_stats::ZramReader,
     ) {
-        let load5_color = self.color_for_load(load5, cores);
-        let _load10_color = self.color_for_load(load10, cores);
-        print!(
-            "{}{}5m:{}  {:.2}  {}{}10m:{}  {:.2}{}",
-            Colors::CYAN,
-            Colors::RESET,
-            load5_color,
-            load5,
-            Colors::CYAN,
-            Colors::RESET,
-            load10,
-            Colors::RESET,
-            Colors::RESET
-        );
+        let colors = ColorScheme::global();
+        let cpu_color = colors.color_for_percent(cpu, 80.0);
+        let swap_color = colors.color_for_percent(swap_percent, 50.0);
+        let load_color = colors.color_for_load(load1, cores);
+        let load5_color = colors.color_for_load(load5, cores);
+        let load10_color = colors.color_for_load(load10, cores);
+        let health_color = colors.color_for_health(health);
 
-        let health_color = self.color_for_health(health);
-        print!(
+        println!(
             "{}{}HEALTH:{} {}/100 [{}{}{}]",
+            Colors::BOLD,
             health_color,
             Colors::RESET,
             health,
             health_color,
             health_label,
+            Colors::RESET
+        );
+        println!(
+            "{}{}CPU:{}   {}{:.1}%{}",
+            Colors::BOLD,
+            Colors::CYAN,
             Colors::RESET,
+            cpu_color,
+            cpu,
+            Colors::RESET
+        );
+        println!(
+            "{}{}RAM:{}   {}{:.1}%{}",
+            Colors::BOLD,
+            Colors::CYAN,
+            Colors::RESET,
+            Colors::WHITE,
+            mem_percent,
             Colors::RESET
         );
 
         if let Some(z) = zram_stats {
             let ratio = zram_reader.compression_ratio(z);
-            let saved = zram_reader.saved_bytes(z);
+            let ratio_color = colors.color_for_zram(ratio);
             println!(
-                "{}{}ZRAM:{} orig={}MB compr={}MB ratio={:.1}x saved={}MB",
+                "{}{}ZRAM:{} {}{:.2}x{}",
+                Colors::BOLD,
                 Colors::CYAN,
                 Colors::RESET,
-                z.orig / 1024 / 1024,
-                z.compr / 1024 / 1024,
+                ratio_color,
                 ratio,
-                saved / 1024 / 1024,
                 Colors::RESET
             );
         }
+
+        println!(
+            "{}{}SWAP:{}  {}{:.1}%{}",
+            Colors::BOLD,
+            Colors::CYAN,
+            Colors::RESET,
+            swap_color,
+            swap_percent,
+            Colors::RESET
+        );
+        println!(
+            "{}{}LOAD:{}  {}{:.2}  {}{:.2}  {}{:.2}{}",
+            Colors::BOLD,
+            Colors::CYAN,
+            Colors::RESET,
+            load_color,
+            load1,
+            load5_color,
+            load5,
+            load10_color,
+            load10,
+            Colors::RESET
+        );
     }
+
+    pub fn print_advanced_info(&self) {}
 
     fn build_markers(
         &self,
@@ -331,60 +274,6 @@ mod tests {
     }
 
     #[test]
-    fn test_color_for_load_white() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_load(1.0, 4), Colors::WHITE);
-    }
-
-    #[test]
-    fn test_color_for_load_yellow() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_load(5.0, 4), Colors::YELLOW);
-    }
-
-    #[test]
-    fn test_color_for_load_red() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_load(10.0, 4), Colors::RED);
-    }
-
-    #[test]
-    fn test_color_for_percent_white() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_percent(50.0, 80.0), Colors::WHITE);
-    }
-
-    #[test]
-    fn test_color_for_percent_red() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_percent(90.0, 80.0), Colors::RED);
-    }
-
-    #[test]
-    fn test_color_for_health_excellent() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_health(90), Colors::GREEN);
-    }
-
-    #[test]
-    fn test_color_for_health_good() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_health(75), Colors::CYAN);
-    }
-
-    #[test]
-    fn test_color_for_health_ok() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_health(55), Colors::YELLOW);
-    }
-
-    #[test]
-    fn test_color_for_health_stressed() {
-        let ui = TerminalUI::new();
-        assert_eq!(ui.color_for_health(30), Colors::RED);
-    }
-
-    #[test]
     fn test_build_markers_empty() {
         let ui = TerminalUI::new();
         let result = ui.build_markers(false, false, false, false, false);
@@ -407,5 +296,53 @@ mod tests {
         assert!(result.contains("PAUSED"));
         assert!(result.contains("RENICE"));
         assert!(result.contains("KILL"));
+    }
+
+    #[test]
+    fn test_color_for_load_yellow() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_load(5.0, 4), Colors::YELLOW);
+    }
+
+    #[test]
+    fn test_color_for_load_red() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_load(10.0, 4), Colors::RED);
+    }
+
+    #[test]
+    fn test_color_for_percent_white() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_percent(50.0, 80.0), Colors::WHITE);
+    }
+
+    #[test]
+    fn test_color_for_percent_red() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_percent(90.0, 80.0), Colors::RED);
+    }
+
+    #[test]
+    fn test_color_for_health_excellent() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_health(90), Colors::GREEN);
+    }
+
+    #[test]
+    fn test_color_for_health_good() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_health(75), Colors::CYAN);
+    }
+
+    #[test]
+    fn test_color_for_health_ok() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_health(55), Colors::YELLOW);
+    }
+
+    #[test]
+    fn test_color_for_health_stressed() {
+        let colors = ColorScheme::global();
+        assert_eq!(colors.color_for_health(30), Colors::RED);
     }
 }
