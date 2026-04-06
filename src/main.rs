@@ -1,6 +1,8 @@
 use clap::Parser;
 use std::time::Instant;
 
+const APP_NAME: &str = "rtop";
+
 mod color;
 mod config;
 mod filter;
@@ -94,7 +96,7 @@ fn main() {
     let mut frozen_procs: Vec<process_list::ProcessInfo> = Vec::new();
 
     loop {
-        let key = input.read_key();
+        let key = input.read_key(&logger);
 
         if let Some(k) = key {
             let action = keys.handle_key(
@@ -147,18 +149,26 @@ fn main() {
                 KeyAction::ExecuteAction => {
                     if renice_mode.active && renice_mode.selection < frozen_procs.len() {
                         let proc = &frozen_procs[renice_mode.selection];
-                        unsafe {
-                            libc::setpriority(
-                                libc::PRIO_PROCESS,
-                                proc.pid.as_u32() as libc::id_t,
-                                renice_mode.nice_value,
-                            );
+                        let is_root = unsafe { libc::geteuid() } == 0;
+                        if renice_mode.nice_value < 0 && !is_root {
+                            logger.info(&format!(
+                                "{} must be run as root to set negative nice value",
+                                APP_NAME
+                            ));
+                        } else {
+                            unsafe {
+                                libc::setpriority(
+                                    libc::PRIO_PROCESS,
+                                    proc.pid.as_u32() as libc::id_t,
+                                    renice_mode.nice_value,
+                                );
+                            }
+                            logger.info(&format!(
+                                "Reniced PID {} to {}",
+                                proc.pid, renice_mode.nice_value
+                            ));
+                            renice_mode.deactivate();
                         }
-                        logger.info(&format!(
-                            "Reniced PID {} to {}",
-                            proc.pid, renice_mode.nice_value
-                        ));
-                        renice_mode.deactivate();
                     } else if kill_mode.active && kill_mode.selection < frozen_procs.len() {
                         let proc = &frozen_procs[kill_mode.selection];
                         let sig = if kill_mode.signal == 9 {
@@ -193,11 +203,19 @@ fn main() {
                 KeyAction::NiceValueUp => {
                     if renice_mode.active {
                         renice_mode.nice_value = (renice_mode.nice_value + 1).min(19);
+                        logger.debug(&format!(
+                            "NiceValueUp: new value = {}",
+                            renice_mode.nice_value
+                        ));
                     }
                 }
                 KeyAction::NiceValueDown => {
                     if renice_mode.active {
                         renice_mode.nice_value = (renice_mode.nice_value - 1).max(-20);
+                        logger.debug(&format!(
+                            "NiceValueDown: new value = {}",
+                            renice_mode.nice_value
+                        ));
                     }
                 }
                 KeyAction::Signal9 => {

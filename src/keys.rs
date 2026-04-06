@@ -35,6 +35,10 @@ impl Keys {
         frozen_procs_len: usize,
         logger: &Logger,
     ) -> KeyAction {
+        logger.debug(&format!(
+            "handle_key: key={:?}, renice={}, kill={}",
+            key, renice_active, kill_active
+        ));
         match key {
             Some(b'q' | b'Q') => {
                 logger.debug("Key: Quit");
