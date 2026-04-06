@@ -1,3 +1,4 @@
+use crate::logger::Logger;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -18,8 +19,16 @@ impl Config {
 
         if let Some(path) = config_path {
             if let Ok(contents) = std::fs::read_to_string(&path) {
-                if let Ok(config) = serde_yaml::from_str::<Config>(&contents) {
-                    return config;
+                match serde_yaml::from_str::<Config>(&contents) {
+                    Ok(config) => {
+                        let logger = Logger::new();
+                        logger.debug(&format!("Loaded config from {:?}", path));
+                        return config;
+                    }
+                    Err(e) => {
+                        let logger = Logger::new();
+                        logger.debug(&format!("Failed to parse config: {}", e));
+                    }
                 }
             }
         }
