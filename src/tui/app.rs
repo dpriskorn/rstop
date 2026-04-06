@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 #[derive(Default, PartialEq, Clone, Copy)]
 pub enum Mode {
     #[default]
@@ -16,6 +18,7 @@ pub struct AppState {
     pub kill_signal: i32,
     pub advanced: bool,
     pub info: String,
+    pub info_time: Option<Instant>,
 }
 
 impl AppState {
@@ -28,6 +31,21 @@ impl AppState {
             kill_signal: 15,
             advanced: false,
             info: String::new(),
+            info_time: None,
+        }
+    }
+
+    pub fn set_info(&mut self, msg: &str) {
+        self.info = msg.to_string();
+        self.info_time = Some(Instant::now());
+    }
+
+    pub fn clear_info_if_old(&mut self, duration_secs: u64) {
+        if let Some(time) = self.info_time {
+            if time.elapsed().as_secs() >= duration_secs {
+                self.info.clear();
+                self.info_time = None;
+            }
         }
     }
 }

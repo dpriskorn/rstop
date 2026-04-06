@@ -115,7 +115,7 @@ impl Keys {
                     KeyAction::None
                 }
             }
-            Some(0xF3) => {
+            Some(0xF2) => {
                 if renice_active {
                     logger.debug("Key: NiceValueUp");
                     KeyAction::NiceValueUp
@@ -126,7 +126,7 @@ impl Keys {
                     KeyAction::None
                 }
             }
-            Some(0xF2) => {
+            Some(0xF3) => {
                 if renice_active {
                     logger.debug("Key: NiceValueDown");
                     KeyAction::NiceValueDown

@@ -106,8 +106,8 @@ mod tests {
         let p1 = make_process("HeapHelper", 100.0);
         let p2 = make_process("other", 60.0);
         let p3 = make_process("test", 40.0);
-        let processes: Vec<ProcessInfo> = vec![p1, p2, p3];
-        let filtered = filter.filter_owned(processes, false);
+        let processes: Vec<&ProcessInfo> = vec![&p1, &p2, &p3];
+        let filtered = filter.filter(&processes, false);
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "other");

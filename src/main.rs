@@ -70,12 +70,12 @@ impl App {
             cpu: 0.0,
             zram_swap_percent: 0.0,
             disk_swap_percent: 0.0,
-            cores: 1,
+            cores: DEFAULT_CORES,
             load1: 0.0,
             load5: 0.0,
             load10: 0.0,
-            health: 100,
-            health_label: "EXCELLENT",
+            health: DEFAULT_HEALTH,
+            health_label: LOG_EXCELLENT,
             health_factors: HealthFactors {
                 mem_penalty: 0,
                 swap_penalty: 0,
@@ -99,10 +99,10 @@ impl App {
         );
 
         match action {
-            KeyAction::Quit => panic!("Quit requested"),
+            KeyAction::Quit => panic!("{}", LOG_QUIT),
             KeyAction::ExitMode => {
                 self.state.mode = Mode::Normal;
-                self.logger.info("Mode deactivated");
+                self.logger.info(LOG_MODE_DEACTIVATED);
             }
             KeyAction::TogglePause => {
                 if self.state.mode == Mode::Pause {
@@ -151,7 +151,7 @@ impl App {
                 .into_iter()
                 .cloned()
                 .collect();
-                self.logger.info("Kill mode activated");
+                self.logger.info(LOG_KILL_MODE_ACTIVATED);
             }
             KeyAction::ExecuteAction => self.handle_execute_action(),
             KeyAction::NavigateUp => {
@@ -176,22 +176,22 @@ impl App {
             }
             KeyAction::NiceValueUp => {
                 if self.state.mode == Mode::Renice {
-                    self.state.nice_value = (self.state.nice_value + 1).min(19);
+                    self.state.nice_value = (self.state.nice_value + 1).min(NICE_MAX);
                 }
             }
             KeyAction::NiceValueDown => {
                 if self.state.mode == Mode::Renice {
-                    self.state.nice_value = (self.state.nice_value - 1).max(-20);
+                    self.state.nice_value = (self.state.nice_value - 1).max(NICE_MIN);
                 }
             }
             KeyAction::Signal9 => {
                 if self.state.mode == Mode::Kill {
-                    self.state.kill_signal = 9;
+                    self.state.kill_signal = SIGNAL_KILL;
                 }
             }
             KeyAction::Signal15 => {
                 if self.state.mode == Mode::Kill {
-                    self.state.kill_signal = 15;
+                    self.state.kill_signal = SIGNAL_TERM;
                 }
             }
             KeyAction::None => {}
@@ -214,16 +214,16 @@ impl App {
                     "Cannot renice PID {} to {} - requires root (tried to increase priority)",
                     proc.pid, self.state.nice_value
                 ));
+                self.state.set_info(MSG_NEED_ROOT);
                 self.state.mode = Mode::Normal;
                 return;
             }
 
             // Nice value must be in valid range -20 to 19
-            if self.state.nice_value < -20 || self.state.nice_value > 19 {
-                self.logger.error(&format!(
-                    "Invalid nice value {} - must be between -20 and 19",
-                    self.state.nice_value
-                ));
+            if self.state.nice_value < NICE_MIN || self.state.nice_value > NICE_MAX {
+                self.logger
+                    .error(&format!("Invalid nice value {}", self.state.nice_value));
+                self.state.set_info(MSG_INVALID_NICE);
                 self.state.mode = Mode::Normal;
                 return;
             }
@@ -240,9 +240,10 @@ impl App {
 
             if result != 0 {
                 self.logger.error(&format!(
-                    "Failed to renice PID {} - errno={} (permission denied or invalid value)",
+                    "Failed to renice PID {} - errno={}",
                     proc.pid, errno_val
                 ));
+                self.state.set_info(MSG_RENICE_FAILED);
                 self.state.mode = Mode::Normal;
                 return;
             }
@@ -251,6 +252,8 @@ impl App {
                 "Reniced PID {} to {}",
                 proc.pid, self.state.nice_value
             ));
+            self.state
+                .set_info(&format!("{} {}", MSG_RENICED, self.state.nice_value));
             self.state.mode = Mode::Normal;
         }
         if self.state.mode == Mode::Kill && self.state.selection < self.frozen_procs.len() {
@@ -266,14 +269,18 @@ impl App {
                     "Sent signal {} to PID {}",
                     self.state.kill_signal, proc.pid
                 ));
+                self.state.set_info(MSG_KILL_SENT);
             } else {
                 self.logger
-                    .error(&format!("Failed to kill PID {}", proc.pid));
+                    .error(&format!("{} {}", MSG_FAILED_TO_KILL, proc.pid));
+                self.state.set_info(MSG_KILL_FAILED);
             }
         }
     }
 
     fn refresh(&mut self, interval: f64, last_refresh: &mut Instant) {
+        self.state.clear_info_if_old(MSG_DURATION_SECS);
+
         if self.state.mode == Mode::Pause
             || self.state.mode == Mode::Renice
             || self.state.mode == Mode::Kill
@@ -338,10 +345,10 @@ fn main() {
     let (min_cpu, min_mem, exclude_names, interval) =
         config.merge_with_args(args.min_cpu, args.exclude, args.interval);
 
-    logger.info("Starting RTOP");
+    logger.info(LOG_START);
 
     let mut app = App::new(min_cpu, min_mem, exclude_names, logger);
-    let mut tui = TuiRenderer::new().expect("Failed to initialize TUI");
+    let mut tui = TuiRenderer::new().expect(LOG_TUI_FAIL);
 
     let mut last_refresh = Instant::now();
 
@@ -389,18 +396,18 @@ fn main() {
         );
 
         let sleep_time = if app.state.mode == Mode::Help || app.state.mode == Mode::Pause {
-            50
+            SLEEP_NORMAL
         } else if app.state.mode == Mode::Renice || app.state.mode == Mode::Kill {
             if key.is_none() {
-                50
+                SLEEP_NORMAL
             } else {
-                10
+                SLEEP_FAST
             }
         } else {
-            50
+            SLEEP_NORMAL
         };
         std::thread::sleep(std::time::Duration::from_millis(sleep_time));
     }
 
-    app.logger.info("Exiting RTOP");
+    app.logger.info(LOG_EXIT);
 }

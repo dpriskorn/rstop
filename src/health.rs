@@ -103,20 +103,20 @@ mod tests {
 
     #[test]
     fn test_health_calculator_stressed() {
-        let (score, label) = HealthCalculator::calculate(10.0, 10.0, 1.2, 2);
+        let (score, _label) = HealthCalculator::calculate(10.0, 10.0, 1.2, 2);
         assert!(score < 50);
     }
 
     #[test]
     fn test_health_calculator_good() {
-        let (score, label) = HealthCalculator::calculate(0.0, 5.0, 1.4, 4);
+        let (score, _label) = HealthCalculator::calculate(0.0, 5.0, 1.4, 4);
         assert!(score >= 70, "Score should be >= 70, got {}", score);
         assert!(score <= 84, "Score should be <= 84, got {}", score);
     }
 
     #[test]
     fn test_health_calculator_ok() {
-        let (score, label) = HealthCalculator::calculate(0.0, 7.0, 1.4, 4);
+        let (score, _label) = HealthCalculator::calculate(0.0, 7.0, 1.4, 4);
         assert!(score >= 50, "Score should be >= 50, got {}", score);
         assert!(score < 70, "Score should be < 70, got {}", score);
     }
