@@ -87,6 +87,8 @@ fn main() {
                 key,
                 renice_mode.active,
                 kill_mode.active,
+                help_mode.active,
+                pause_mode.active,
                 frozen_procs.len(),
                 &logger,
             );
@@ -96,6 +98,8 @@ fn main() {
                 KeyAction::ExitMode => {
                     renice_mode.deactivate();
                     kill_mode.deactivate();
+                    help_mode.deactivate();
+                    pause_mode.deactivate();
                     logger.info("Mode deactivated");
                 }
                 KeyAction::TogglePause => {

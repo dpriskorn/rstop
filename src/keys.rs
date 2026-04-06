@@ -30,6 +30,8 @@ impl Keys {
         key: Option<u8>,
         renice_active: bool,
         kill_active: bool,
+        help_active: bool,
+        pause_active: bool,
         frozen_procs_len: usize,
         logger: &Logger,
     ) -> KeyAction {
@@ -39,24 +41,44 @@ impl Keys {
                 KeyAction::Quit
             }
             Some(b'p' | b'P') => {
-                logger.debug("Key: TogglePause");
-                KeyAction::TogglePause
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: TogglePause");
+                    KeyAction::TogglePause
+                }
             }
             Some(b'a' | b'A') => {
-                logger.debug("Key: ToggleAdvanced");
-                KeyAction::ToggleAdvanced
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: ToggleAdvanced");
+                    KeyAction::ToggleAdvanced
+                }
             }
             Some(b'h' | b'H') => {
-                logger.debug("Key: ToggleHelp");
-                KeyAction::ToggleHelp
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: ToggleHelp");
+                    KeyAction::ToggleHelp
+                }
             }
             Some(b'r' | b'R') => {
-                logger.debug("Key: ActivateRenice");
-                KeyAction::ActivateRenice
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: ActivateRenice");
+                    KeyAction::ActivateRenice
+                }
             }
             Some(b'k' | b'K') => {
-                logger.debug("Key: ActivateKill");
-                KeyAction::ActivateKill
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: ActivateKill");
+                    KeyAction::ActivateKill
+                }
             }
             Some(b'\n' | b'\r') => {
                 if renice_active || kill_active {
@@ -103,7 +125,7 @@ impl Keys {
                 }
             }
             Some(0x1b) => {
-                if renice_active || kill_active {
+                if help_active || pause_active || renice_active || kill_active {
                     logger.debug("Key: ExitMode");
                     KeyAction::ExitMode
                 } else {
@@ -136,7 +158,7 @@ mod tests {
         let keys = Keys::new();
         let logger = Logger::new();
         assert!(matches!(
-            keys.handle_key(Some(b'q'), false, false, 0, &logger),
+            keys.handle_key(Some(b'q'), false, false, false, false, 0, &logger),
             KeyAction::Quit
         ));
     }
@@ -146,7 +168,7 @@ mod tests {
         let keys = Keys::new();
         let logger = Logger::new();
         assert!(matches!(
-            keys.handle_key(Some(b'r'), false, false, 0, &logger),
+            keys.handle_key(Some(b'r'), false, false, false, false, 0, &logger),
             KeyAction::ActivateRenice
         ));
     }
@@ -156,7 +178,7 @@ mod tests {
         let keys = Keys::new();
         let logger = Logger::new();
         assert!(matches!(
-            keys.handle_key(Some(b'k'), false, false, 0, &logger),
+            keys.handle_key(Some(b'k'), false, false, false, false, 0, &logger),
             KeyAction::ActivateKill
         ));
     }
@@ -166,7 +188,7 @@ mod tests {
         let keys = Keys::new();
         let logger = Logger::new();
         assert!(matches!(
-            keys.handle_key(Some(0x1b), true, false, 5, &logger),
+            keys.handle_key(Some(0x1b), true, false, false, false, 5, &logger),
             KeyAction::ExitMode
         ));
     }
@@ -176,8 +198,28 @@ mod tests {
         let keys = Keys::new();
         let logger = Logger::new();
         assert!(matches!(
-            keys.handle_key(Some(0x1b), false, false, 0, &logger),
+            keys.handle_key(Some(0x1b), false, false, false, false, 0, &logger),
             KeyAction::None
+        ));
+    }
+
+    #[test]
+    fn test_handle_key_escape_exits_help_mode() {
+        let keys = Keys::new();
+        let logger = Logger::new();
+        assert!(matches!(
+            keys.handle_key(Some(0x1b), false, false, true, false, 0, &logger),
+            KeyAction::ExitMode
+        ));
+    }
+
+    #[test]
+    fn test_handle_key_escape_exits_pause_mode() {
+        let keys = Keys::new();
+        let logger = Logger::new();
+        assert!(matches!(
+            keys.handle_key(Some(0x1b), false, false, false, true, 0, &logger),
+            KeyAction::ExitMode
         ));
     }
 }
