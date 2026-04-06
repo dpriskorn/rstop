@@ -31,7 +31,7 @@ impl ColorScheme {
             health_excellent: 85,
             health_good: 70,
             health_ok: 50,
-            zram_excellent: 3.0,
+            zram_excellent: 2.0,
             zram_good: 1.5,
             load_high: 1.5,
             load_medium: 1.0,

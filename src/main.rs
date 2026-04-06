@@ -88,7 +88,6 @@ fn main() {
     let mut advanced = false;
 
     let mut cpu = 0.0;
-    let mut mem_percent = 0.0;
     let mut zram_swap_percent = 0.0;
     let mut disk_swap_percent = 0.0;
     let mut load1 = 0.0;
@@ -291,7 +290,6 @@ fn main() {
 
             let start = Instant::now();
             cpu = monitor.get_stats().cpu;
-            mem_percent = monitor.get_stats().mem_percent;
             zram_swap_percent = monitor.get_stats().zram_swap_percent;
             disk_swap_percent = monitor.get_stats().disk_swap_percent;
             cores = monitor.get_stats().cores;
@@ -311,22 +309,11 @@ fn main() {
                 .map(|z| zram_reader.compression_ratio(z))
                 .unwrap_or(0.0);
 
-            let (h, label) = HealthCalculator::calculate(
-                zram_swap_percent,
-                disk_swap_percent,
-                load1,
-                zram_ratio,
-                cores,
-            );
+            let (h, label) =
+                HealthCalculator::calculate(disk_swap_percent, load1, zram_ratio, cores);
             health = h;
             health_label = label;
-            health_factors = HealthFactors::calculate(
-                zram_swap_percent,
-                disk_swap_percent,
-                load1,
-                zram_ratio,
-                cores,
-            );
+            health_factors = HealthFactors::calculate(disk_swap_percent, load1, zram_ratio, cores);
         }
 
         if help_mode.active {

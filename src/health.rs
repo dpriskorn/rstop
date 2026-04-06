@@ -7,7 +7,6 @@ pub struct HealthFactors {
 
 impl HealthFactors {
     pub fn calculate(
-        zram_swap_percent: f32,
         disk_swap_percent: f32,
         load1: f64,
         zram_ratio: f64,
@@ -50,7 +49,6 @@ pub struct HealthCalculator;
 
 impl HealthCalculator {
     pub fn calculate(
-        zram_swap_percent: f32,
         disk_swap_percent: f32,
         load1: f64,
         zram_ratio: f64,
@@ -100,40 +98,40 @@ mod tests {
 
     #[test]
     fn test_health_calculator_excellent() {
-        let (score, label) = HealthCalculator::calculate(50.0, 0.0, 1.0, 3.5, 4);
-        assert!(score >= 85);
+        let (score, label) = HealthCalculator::calculate(0.0, 1.0, 3.5, 4);
+        assert!(score >= 85, "Score: {}", score);
         assert_eq!(label, "EXCELLENT");
     }
 
     #[test]
     fn test_health_calculator_stressed() {
-        let (score, label) = HealthCalculator::calculate(60.0, 10.0, 10.0, 1.2, 2);
+        let (score, label) = HealthCalculator::calculate(10.0, 10.0, 1.2, 2);
         assert!(score < 50);
     }
 
     #[test]
     fn test_health_calculator_good() {
-        let (score, label) = HealthCalculator::calculate(15.0, 0.0, 3.5, 1.4, 4);
+        let (score, label) = HealthCalculator::calculate(0.0, 5.0, 1.4, 4);
         assert!(score >= 70, "Score should be >= 70, got {}", score);
         assert!(score <= 84, "Score should be <= 84, got {}", score);
     }
 
     #[test]
     fn test_health_calculator_ok() {
-        let (score, label) = HealthCalculator::calculate(35.0, 0.0, 5.0, 1.8, 4);
+        let (score, label) = HealthCalculator::calculate(0.0, 7.0, 1.4, 4);
         assert!(score >= 50, "Score should be >= 50, got {}", score);
         assert!(score < 70, "Score should be < 70, got {}", score);
     }
 
     #[test]
     fn test_health_factors_disk_swap() {
-        let factors = HealthFactors::calculate(5.0, 10.0, 1.0, 2.0, 4);
+        let factors = HealthFactors::calculate(10.0, 1.0, 2.0, 4);
         assert_eq!(factors.swap_penalty, 50);
     }
 
     #[test]
     fn test_health_factors_high_load() {
-        let factors = HealthFactors::calculate(5.0, 0.0, 5.0, 2.0, 4);
+        let factors = HealthFactors::calculate(0.0, 6.5, 2.0, 4);
         assert_eq!(factors.load_penalty, 25);
     }
 }

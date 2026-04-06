@@ -58,6 +58,7 @@ mod tests {
         ProcessInfo {
             pid: Pid::from_u32(1),
             name: name.to_string(),
+            user: "test".to_string(),
             cpu,
             mem: 100,
             time: 1000,

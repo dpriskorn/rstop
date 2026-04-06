@@ -175,10 +175,15 @@ mod tests {
     #[test]
     fn test_overview_print_no_panic() {
         let overview = OverviewTable::new();
+        let factors = HealthFactors {
+            mem_penalty: 0,
+            swap_penalty: 0,
+            load_penalty: 0,
+            zram_penalty: 0,
+        };
         overview.print(
             50.0,
             60.0,
-            0.0,
             0.0,
             1.0,
             1.5,
@@ -186,6 +191,7 @@ mod tests {
             4,
             85,
             "EXCELLENT",
+            &factors,
             None,
             &ZramReader::new(),
         );
