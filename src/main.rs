@@ -1,7 +1,8 @@
 use clap::Parser;
-use prettytable::{row, table};
 use std::fs;
 use sysinfo::System;
+use tabled::settings::Style;
+use tabled::Table;
 
 const RED: &str = "\x1b[91m";
 const GREEN: &str = "\x1b[92m";
@@ -153,7 +154,10 @@ fn main() {
     let mut help = false;
     let mut renice_mode = false;
     let mut renice_sel: usize = 0;
-    let mut renice_signal = 9;
+    let mut renice_value: i32 = 19;
+    let mut kill_mode = false;
+    let mut kill_sel: usize = 0;
+    let mut kill_signal: i32 = 9;
 
     let mut cpu = 0.0;
     let mut mem_percent = 0.0;
@@ -165,8 +169,7 @@ fn main() {
     let mut hcolor = GREEN;
     let mut mcolor = GREEN;
     let mut zram: Option<ZramStats> = None;
-    let mut procs: Vec<(sysinfo::Pid, String, f32, u64)> = Vec::new();
-    let mut load1 = 0.0;
+    let mut procs: Vec<(sysinfo::Pid, String, f32, u64, u64)> = Vec::new();
     let mut load5 = 0.0;
     let mut load10 = 0.0;
 
@@ -177,18 +180,42 @@ fn main() {
             match k {
                 b'q' | b'Q' => break,
                 0x1b => {
-                    if renice_mode {
+                    if renice_mode || kill_mode {
                         if kbhit() == Some(b'[') {
                             match kbhit() {
-                                Some(b'A') => renice_sel = renice_sel.saturating_sub(1),
-                                Some(b'B') => renice_sel = (renice_sel + 1).min(9),
-                                Some(b'C') | Some(b'D') => {
-                                    renice_signal = if renice_signal == 9 { 15 } else { 9 }
+                                Some(b'A') => {
+                                    if renice_mode {
+                                        renice_sel = renice_sel.saturating_sub(1);
+                                    } else {
+                                        kill_sel = kill_sel.saturating_sub(1);
+                                    }
+                                }
+                                Some(b'B') => {
+                                    if renice_mode {
+                                        renice_sel = (renice_sel + 1).min(9);
+                                    } else {
+                                        kill_sel = (kill_sel + 1).min(9);
+                                    }
+                                }
+                                Some(b'C') => {
+                                    if kill_mode {
+                                        kill_signal = if kill_signal == 9 { 15 } else { 9 };
+                                    } else if renice_mode {
+                                        renice_value = (renice_value - 1).max(-20);
+                                    }
+                                }
+                                Some(b'D') => {
+                                    if kill_mode {
+                                        kill_signal = if kill_signal == 9 { 15 } else { 9 };
+                                    } else if renice_mode {
+                                        renice_value = (renice_value + 1).min(19);
+                                    }
                                 }
                                 _ => {}
                             }
                         } else {
                             renice_mode = false;
+                            kill_mode = false;
                         }
                     } else {
                         break;
@@ -199,17 +226,135 @@ fn main() {
                 b'h' | b'H' => help = !help,
                 b'r' | b'R' => {
                     renice_mode = !renice_mode;
+                    kill_mode = false;
                     renice_sel = 0;
-                    renice_signal = 9;
+                    renice_value = 19;
                     paused = false;
                     if renice_mode {
-                        continue;
+                        sys.refresh_all();
+                        cpu = sys.global_cpu_usage();
+                        let total_mem = sys.total_memory();
+                        let used_mem = sys.used_memory();
+                        let total_swap = sys.total_swap();
+                        let used_swap = sys.used_swap();
+                        cores = sys.cpus().len();
+                        let loadvals: Vec<f64> = fs::read_to_string("/proc/loadavg")
+                            .ok()
+                            .map(|s| {
+                                s.split_whitespace()
+                                    .take(3)
+                                    .filter_map(|w| w.parse().ok())
+                                    .collect()
+                            })
+                            .unwrap_or_else(|| vec![0.0, 0.0, 0.0]);
+                        load1 = loadvals.get(0).copied().unwrap_or(0.0);
+                        load5 = loadvals.get(1).copied().unwrap_or(0.0);
+                        load10 = loadvals.get(2).copied().unwrap_or(0.0);
+                        mem_percent = if total_mem > 0 {
+                            (used_mem as f32 / total_mem as f32) * 100.0
+                        } else {
+                            0.0
+                        };
+                        swap_percent = if total_swap > 0 {
+                            (used_swap as f32 / total_swap as f32) * 100.0
+                        } else {
+                            0.0
+                        };
+                        zram = get_zram();
+                        health = system_health(mem_percent, swap_percent, load1, &zram, cores);
+                        label = health_label(health);
+                        hcolor = health_color(health);
+                        mcolor = mem_color(mem_percent);
+                        procs = sys
+                            .processes()
+                            .iter()
+                            .map(|(pid, p)| {
+                                (
+                                    *pid,
+                                    p.name().to_string_lossy().into_owned(),
+                                    p.cpu_usage(),
+                                    p.memory(),
+                                    p.start_time(),
+                                )
+                            })
+                            .collect();
+                        procs.sort_by(|a, b| {
+                            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                    }
+                }
+                b'k' | b'K' => {
+                    kill_mode = !kill_mode;
+                    renice_mode = false;
+                    kill_sel = 0;
+                    kill_signal = 9;
+                    paused = false;
+                    if kill_mode {
+                        sys.refresh_all();
+                        cpu = sys.global_cpu_usage();
+                        let total_mem = sys.total_memory();
+                        let used_mem = sys.used_memory();
+                        let total_swap = sys.total_swap();
+                        let used_swap = sys.used_swap();
+                        cores = sys.cpus().len();
+                        let loadvals: Vec<f64> = fs::read_to_string("/proc/loadavg")
+                            .ok()
+                            .map(|s| {
+                                s.split_whitespace()
+                                    .take(3)
+                                    .filter_map(|w| w.parse().ok())
+                                    .collect()
+                            })
+                            .unwrap_or_else(|| vec![0.0, 0.0, 0.0]);
+                        load1 = loadvals.get(0).copied().unwrap_or(0.0);
+                        load5 = loadvals.get(1).copied().unwrap_or(0.0);
+                        load10 = loadvals.get(2).copied().unwrap_or(0.0);
+                        mem_percent = if total_mem > 0 {
+                            (used_mem as f32 / total_mem as f32) * 100.0
+                        } else {
+                            0.0
+                        };
+                        swap_percent = if total_swap > 0 {
+                            (used_swap as f32 / total_swap as f32) * 100.0
+                        } else {
+                            0.0
+                        };
+                        zram = get_zram();
+                        health = system_health(mem_percent, swap_percent, load1, &zram, cores);
+                        label = health_label(health);
+                        hcolor = health_color(health);
+                        mcolor = mem_color(mem_percent);
+                        procs = sys
+                            .processes()
+                            .iter()
+                            .map(|(pid, p)| {
+                                (
+                                    *pid,
+                                    p.name().to_string_lossy().into_owned(),
+                                    p.cpu_usage(),
+                                    p.memory(),
+                                    p.start_time(),
+                                )
+                            })
+                            .collect();
+                        procs.sort_by(|a, b| {
+                            b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
+                        });
                     }
                 }
                 b'\n' | b'\r' => {
                     if renice_mode && renice_sel < 10 {
-                        let (pid, _, _, _) = &procs[renice_sel];
-                        let sig = if renice_signal == 9 {
+                        let (pid, _, _, _, _) = &procs[renice_sel];
+                        unsafe {
+                            libc::setpriority(
+                                libc::PRIO_PROCESS,
+                                pid.as_u32() as libc::id_t,
+                                renice_value,
+                            );
+                        }
+                    } else if kill_mode && kill_sel < 10 {
+                        let (pid, _, _, _, _) = &procs[kill_sel];
+                        let sig = if kill_signal == 9 {
                             libc::SIGKILL
                         } else {
                             libc::SIGTERM
@@ -223,7 +368,15 @@ fn main() {
 
         let key_pressed = key.is_some();
 
-        if !paused && !renice_mode || key_pressed {
+        let should_refresh = if paused {
+            false
+        } else if renice_mode || kill_mode {
+            false
+        } else {
+            true
+        };
+
+        if should_refresh || (key_pressed && !paused) {
             sys.refresh_all();
             cpu = sys.global_cpu_usage();
             let total_mem = sys.total_memory();
@@ -271,6 +424,7 @@ fn main() {
                         p.name().to_string_lossy().into_owned(),
                         p.cpu_usage(),
                         p.memory(),
+                        p.start_time(),
                     )
                 })
                 .collect();
@@ -278,6 +432,16 @@ fn main() {
         }
 
         if renice_mode && !key_pressed {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
+
+        if kill_mode && !key_pressed {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            continue;
+        }
+
+        if paused && !key_pressed {
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
@@ -298,17 +462,26 @@ fn main() {
             println!("  saved   = orig - compr (actual RAM saved)");
             println!("  {CYAN}Example:{RESET} ratio 4.0x means 1000MB compresses to 250MB");
             println!("\n{BOLD}{WHITE}HEALTH SCORE:{RESET}");
-            println!("  Based on: RAM%, SWAP%, LOAD, ZRAM ratio");
-            println!("  {GREEN}85+  = EXCELLENT{RESET} - all normal");
-            println!("  {CYAN}70-84 = GOOD{RESET} - slight load");
-            println!("  {YELLOW}50-69 = OK{RESET} - elevated load");
-            println!("  {RED}0-49  = STRESSED{RESET} - high load");
+            let excellent = format!("{}EXCELLENT{}", GREEN, RESET);
+            let good = format!("{}GOOD{}", CYAN, RESET);
+            let ok = format!("{}OK{}", YELLOW, RESET);
+            let stressed = format!("{}STRESSED{}", RED, RESET);
+            let data = [
+                ("85+", excellent.as_str(), "all normal"),
+                ("70-84", good.as_str(), "slight load"),
+                ("50-69", ok.as_str(), "elevated load"),
+                ("0-49", stressed.as_str(), "high load"),
+            ];
+            let mut table = Table::new(&data);
+            table.with(Style::empty());
+            println!("{}", table);
             println!("\n{BOLD}{WHITE}KEYS:{RESET}");
             println!("  {WHITE}q/ESC = quit{RESET}");
             println!("  {WHITE}p      = pause display{RESET}");
             println!("  {WHITE}a      = advanced mode (shows health score, full zram){RESET}");
             println!("  {WHITE}h      = toggle this help{RESET}");
-            println!("  {WHITE}r      = renice mode (select process to kill){RESET}");
+            println!("  {WHITE}r      = renice mode (select process, set nice -20 to 19){RESET}");
+            println!("  {WHITE}k      = kill mode (select process, send signal 9 or 15){RESET}");
             println!("\n{BOLD}{CYAN}interval={}{}s{RESET}", CYAN, args.interval);
             let help_marker = format!(" {CYAN}[HELP]{RESET}");
             let advanced_marker = if advanced {
@@ -316,13 +489,14 @@ fn main() {
             } else {
                 String::new()
             };
-            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}r=renice{RESET} | {BOLD}{CYAN}k=kill{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, pause_marker);
+            if !key_pressed {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
             continue;
         }
 
         println!("\x1b[2J\x1b[H");
-        println!("{BOLD}{BLUE}RTOP{RESET}");
         println!(
             "{BOLD}{CYAN}CPU:{RESET}   {}{:.0}%{RESET}",
             if cpu > 80.0 { RED } else { WHITE },
@@ -396,63 +570,46 @@ fn main() {
                 );
             }
         }
-        println!("\n{BOLD}{WHITE}Top processes:{RESET}");
-        let mut table = table!([" ", "TID", "CPU%", "MEM(MB)", "COMMAND"]);
-        use prettytable::format::consts::FORMAT_CLEAN;
-        table.set_format(*FORMAT_CLEAN);
-        for (i, (tid, name, cpu, mem)) in procs.iter().take(10).enumerate() {
-            let display_name: String = if name.len() > 30 {
-                name.chars().take(30).collect()
+        println!("\n{BOLD}{WHITE}  PID  CPU(%)  MEM(MB)  TIME   COMMAND{RESET}");
+        let mut rows = Vec::new();
+        for (i, (tid, name, cpu, mem, time)) in procs.iter().take(10).enumerate() {
+            let selected = (renice_mode && i == renice_sel) || (kill_mode && i == kill_sel);
+            let marker = if selected { ">" } else { " " };
+            let tid_str = format!("{:>5}", tid);
+            let cpu_str = format!("{:>6}", cpu.round() as u64);
+            let mem_str = format!("{:>7}", (*mem as f64 / 1024.0 / 1024.0).round() as u64);
+            let time_str = format!("{:>5}", time / 60);
+            let display_name: String = if name.len() > 25 {
+                name.chars().take(25).collect()
             } else {
                 name.clone()
             };
-            let selected = renice_mode && i == renice_sel;
-            let marker = if selected {
-                format!("{GREEN}>{RESET}")
+            if selected {
+                rows.push((
+                    marker,
+                    tid_str,
+                    cpu_str,
+                    mem_str,
+                    time_str,
+                    format!("{BOLD}{}{RESET}", display_name),
+                ));
             } else {
-                format!(" ")
-            };
-            let display_name: String = if name.len() > 30 {
-                name.chars().take(30).collect()
-            } else {
-                name.clone()
-            };
-            let display_name = if selected {
-                format!("{BOLD}{}{RESET}", display_name)
-            } else {
-                display_name
-            };
-            table.add_row(row![
-                marker,
-                if selected {
-                    format!("{BOLD}{}{RESET}", tid)
-                } else {
-                    tid.to_string()
-                },
-                if selected {
-                    format!("{BOLD}{}{RESET}", cpu.round() as u64)
-                } else {
-                    cpu.round().to_string()
-                },
-                if selected {
-                    format!(
-                        "{BOLD}{}{RESET}",
-                        (*mem as f64 / 1024.0 / 1024.0).round() as u64
-                    )
-                } else {
-                    ((*mem as f64 / 1024.0 / 1024.0).round() as u64).to_string()
-                },
-                display_name
-            ]);
+                rows.push((marker, tid_str, cpu_str, mem_str, time_str, display_name));
+            }
         }
-        table.printstd();
+        let mut table = Table::new(&rows);
+        table.with(Style::empty());
+        println!("{}", table);
         if renice_mode {
-            let sig_display = if renice_signal == 9 {
+            println!("\n{BOLD}{YELLOW}RENICE MODE:{RESET} nice={}{}{}  {CYAN}up/down=select  left/right=nice value  enter=apply{RESET}", YELLOW, renice_value, RESET);
+        }
+        if kill_mode {
+            let sig_display = if kill_signal == 9 {
                 format!("{RED}9=kill{RESET}")
             } else {
                 format!("{GREEN}15=term{RESET}")
             };
-            println!("\n{BOLD}{YELLOW}RENICE MODE:{RESET} signal={}  {CYAN}up/down=select  left/right=toggle signal  enter=send{RESET}", sig_display);
+            println!("\n{BOLD}{RED}KILL MODE:{RESET} signal={}  {CYAN}up/down=select  left/right=toggle signal  enter=send{RESET}", sig_display);
         }
         let help_marker = if help {
             format!(" {CYAN}[HELP]{RESET}")
@@ -469,20 +626,21 @@ fn main() {
         } else {
             String::new()
         };
-        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}r=renice{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, renice_marker, pause_marker);
-
-        if paused {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            if !renice_mode {
-                continue;
-            }
-        } else if renice_mode {
-            std::thread::sleep(std::time::Duration::from_millis(250));
+        let kill_marker = if kill_mode {
+            format!(" {RED}[KILL]{RESET}")
         } else {
+            String::new()
+        };
+        println!("\n{BOLD}{WHITE}q=quit{RESET} | {BOLD}{CYAN}p=pause{RESET} | {BOLD}{CYAN}a=advanced{RESET} | {BOLD}{CYAN}h=help{RESET} | {BOLD}{CYAN}r=renice{RESET} | {BOLD}{CYAN}k=kill{RESET} | {BOLD}{CYAN}interval={}{}s{RESET}{}{}{}{}{}", CYAN, args.interval, advanced_marker, help_marker, renice_marker, kill_marker, pause_marker);
+
+        if paused || renice_mode || kill_mode {
+            if !key.is_some() {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        } else if !key.is_some() {
             std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
         }
     }
 
     disable_raw_mode(&_original_termios);
-    println!("\n{BOLD}{GREEN}Bye!{RESET}\n");
 }
