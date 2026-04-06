@@ -32,7 +32,7 @@ impl ColorScheme {
             health_good: 70,
             health_ok: 50,
             zram_excellent: 3.0,
-            zram_good: 2.0,
+            zram_good: 1.5,
             load_high: 1.5,
             load_medium: 1.0,
             cpu_excellent: 50.0,
