@@ -16,7 +16,9 @@ mod zram_stats;
 use input::InputHandler;
 use keys::{KeyAction, Keys};
 use logger::Logger;
+use modes::help::HelpMode;
 use modes::kill::KillMode;
+use modes::pause::PauseMode;
 use modes::renice::ReniceMode;
 use process_list::{HealthCalculator, ProcessInfo, ProcessList};
 use system_monitor::SystemMonitor;
@@ -59,10 +61,10 @@ fn main() {
 
     let mut renice_mode = ReniceMode::new();
     let mut kill_mode = KillMode::new();
+    let mut pause_mode = PauseMode::new();
+    let mut help_mode = HelpMode::new();
 
-    let mut paused = false;
     let mut advanced = false;
-    let mut help = false;
 
     let mut cpu = 0.0;
     let mut mem_percent = 0.0;
@@ -92,16 +94,16 @@ fn main() {
             match action {
                 KeyAction::Quit => break,
                 KeyAction::TogglePause => {
-                    paused = !paused;
-                    logger.info(&format!("Pause toggled: {}", paused));
+                    pause_mode.toggle();
+                    logger.info(&format!("Pause toggled: {}", pause_mode.active));
                 }
                 KeyAction::ToggleAdvanced => {
                     advanced = !advanced;
                     logger.info(&format!("Advanced toggled: {}", advanced));
                 }
                 KeyAction::ToggleHelp => {
-                    help = !help;
-                    logger.info(&format!("Help toggled: {}", help));
+                    help_mode.toggle();
+                    logger.info(&format!("Help toggled: {}", help_mode.active));
                 }
                 KeyAction::ActivateRenice => {
                     renice_mode.activate();
@@ -185,7 +187,7 @@ fn main() {
             }
         }
 
-        let should_refresh = !(paused || renice_mode.active || kill_mode.active);
+        let should_refresh = !(pause_mode.active || renice_mode.active || kill_mode.active);
 
         if should_refresh {
             let start = Instant::now();
@@ -226,9 +228,9 @@ fn main() {
             }
         }
 
-        if help {
+        if help_mode.active {
             ui.clear_screen();
-            ui.print_help(args.interval, advanced, paused);
+            ui.print_help(args.interval, advanced, pause_mode.active);
             std::thread::sleep(std::time::Duration::from_millis(100));
             continue;
         }
@@ -278,15 +280,15 @@ fn main() {
         ui.print_footer(
             args.interval,
             advanced,
-            help,
-            paused,
+            help_mode.active,
+            pause_mode.active,
             renice_mode.active,
             kill_mode.active,
         );
 
         logger.log_timed("UI render", start);
 
-        if paused || renice_mode.active || kill_mode.active {
+        if pause_mode.active || renice_mode.active || kill_mode.active {
             std::thread::sleep(std::time::Duration::from_millis(100));
         } else {
             std::thread::sleep(std::time::Duration::from_secs_f64(args.interval));
