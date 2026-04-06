@@ -20,7 +20,7 @@ use keys::{KeyAction, Keys};
 use logger::Logger;
 use process_list::{ProcessInfo, ProcessList};
 use system_monitor::SystemMonitor;
-use tui::{AppState, TuiRenderer};
+use tui::{AppState, Mode, TuiRenderer};
 use zram_stats::ZramReader;
 
 #[derive(Parser)]
@@ -88,10 +88,10 @@ impl App {
     fn handle_key(&mut self, key: Option<u8>) {
         let action = self.keys.handle_key(
             key,
-            self.state.renice_active,
-            self.state.kill_active,
-            self.state.help_active,
-            self.state.pause_active,
+            self.state.mode == Mode::Renice,
+            self.state.mode == Mode::Kill,
+            self.state.mode == Mode::Help,
+            self.state.mode == Mode::Pause,
             self.frozen_procs.len(),
             &self.logger,
         );
@@ -99,27 +99,32 @@ impl App {
         match action {
             KeyAction::Quit => panic!("Quit requested"),
             KeyAction::ExitMode => {
-                self.state.renice_active = false;
-                self.state.kill_active = false;
-                self.state.help_active = false;
-                self.state.pause_active = false;
+                self.state.mode = Mode::Normal;
                 self.logger.info("Mode deactivated");
             }
             KeyAction::TogglePause => {
-                self.state.pause_active = !self.state.pause_active;
-            }
-            KeyAction::ToggleAdvanced => {
-                self.state.advanced = !self.state.advanced;
+                if self.state.mode == Mode::Pause {
+                    self.state.mode = Mode::Normal;
+                } else {
+                    self.state.mode = Mode::Pause;
+                }
             }
             KeyAction::ToggleHelp => {
-                self.state.help_active = !self.state.help_active;
+                if self.state.mode == Mode::Help {
+                    self.state.mode = Mode::Normal;
+                } else {
+                    self.state.mode = Mode::Help;
+                }
             }
             KeyAction::ToggleSort => {
                 self.state.sort_by_mem = !self.state.sort_by_mem;
             }
+            KeyAction::ToggleAdvanced => {
+                self.state.advanced = !self.state.advanced;
+            }
             KeyAction::ActivateRenice => {
-                self.state.renice_active = true;
-                self.state.kill_active = false;
+                self.state.mode = Mode::Renice;
+                self.state.selection = 0;
                 self.frozen_procs = if self.state.sort_by_mem {
                     self.process_list.top_by_mem(30)
                 } else {
@@ -134,8 +139,8 @@ impl App {
                 ));
             }
             KeyAction::ActivateKill => {
-                self.state.kill_active = true;
-                self.state.renice_active = false;
+                self.state.mode = Mode::Kill;
+                self.state.selection = 0;
                 self.frozen_procs = if self.state.sort_by_mem {
                     self.process_list.top_by_mem(30)
                 } else {
@@ -148,42 +153,42 @@ impl App {
             }
             KeyAction::ExecuteAction => self.handle_execute_action(),
             KeyAction::NavigateUp => {
-                if self.state.renice_active && self.state.renice_selection > 0 {
-                    self.state.renice_selection -= 1;
+                if self.state.mode == Mode::Renice && self.state.selection > 0 {
+                    self.state.selection -= 1;
                 }
-                if self.state.kill_active && self.state.kill_selection > 0 {
-                    self.state.kill_selection -= 1;
+                if self.state.mode == Mode::Kill && self.state.selection > 0 {
+                    self.state.selection -= 1;
                 }
             }
             KeyAction::NavigateDown => {
-                if self.state.renice_active
-                    && self.state.renice_selection < self.frozen_procs.len().saturating_sub(1)
+                if self.state.mode == Mode::Renice
+                    && self.state.selection < self.frozen_procs.len().saturating_sub(1)
                 {
-                    self.state.renice_selection += 1;
+                    self.state.selection += 1;
                 }
-                if self.state.kill_active
-                    && self.state.kill_selection < self.frozen_procs.len().saturating_sub(1)
+                if self.state.mode == Mode::Kill
+                    && self.state.selection < self.frozen_procs.len().saturating_sub(1)
                 {
-                    self.state.kill_selection += 1;
+                    self.state.selection += 1;
                 }
             }
             KeyAction::NiceValueUp => {
-                if self.state.renice_active {
-                    self.state.renice_nice_value = (self.state.renice_nice_value + 1).min(19);
+                if self.state.mode == Mode::Renice {
+                    self.state.nice_value = (self.state.nice_value + 1).min(19);
                 }
             }
             KeyAction::NiceValueDown => {
-                if self.state.renice_active {
-                    self.state.renice_nice_value = (self.state.renice_nice_value - 1).max(-20);
+                if self.state.mode == Mode::Renice {
+                    self.state.nice_value = (self.state.nice_value - 1).max(-20);
                 }
             }
             KeyAction::Signal9 => {
-                if self.state.kill_active {
+                if self.state.mode == Mode::Kill {
                     self.state.kill_signal = 9;
                 }
             }
             KeyAction::Signal15 => {
-                if self.state.kill_active {
+                if self.state.mode == Mode::Kill {
                     self.state.kill_signal = 15;
                 }
             }
@@ -192,18 +197,18 @@ impl App {
     }
 
     fn handle_execute_action(&mut self) {
-        if self.state.renice_active && self.state.renice_selection < self.frozen_procs.len() {
-            let proc = &self.frozen_procs[self.state.renice_selection];
+        if self.state.mode == Mode::Renice && self.state.selection < self.frozen_procs.len() {
+            let proc = &self.frozen_procs[self.state.selection];
             self.logger.info(&format!(
                 "Attempting to renice PID {} to {}",
-                proc.pid, self.state.renice_nice_value
+                proc.pid, self.state.nice_value
             ));
             let is_root = unsafe { libc::geteuid() } == 0;
 
-            if self.state.renice_nice_value < 1 && !is_root {
+            if self.state.nice_value < 1 && !is_root {
                 self.logger
                     .error(&format!("Cannot renice PID {} - run as root", proc.pid));
-                self.state.renice_active = false;
+                self.state.mode = Mode::Normal;
                 return;
             }
 
@@ -211,7 +216,7 @@ impl App {
                 libc::setpriority(
                     libc::PRIO_PROCESS,
                     proc.pid.as_u32() as libc::id_t,
-                    self.state.renice_nice_value,
+                    self.state.nice_value,
                 )
             };
 
@@ -224,19 +229,19 @@ impl App {
             if result == 0 {
                 self.logger.info(&format!(
                     "Reniced PID {} to {}",
-                    proc.pid, self.state.renice_nice_value
+                    proc.pid, self.state.nice_value
                 ));
-                self.state.renice_active = false;
+                self.state.mode = Mode::Normal;
             } else {
                 self.logger.error(&format!(
                     "Failed to renice PID {}, errno={}",
                     proc.pid, errno_val
                 ));
-                self.state.renice_active = false;
+                self.state.mode = Mode::Normal;
             }
         }
-        if self.state.kill_active && self.state.kill_selection < self.frozen_procs.len() {
-            let proc = &self.frozen_procs[self.state.kill_selection];
+        if self.state.mode == Mode::Kill && self.state.selection < self.frozen_procs.len() {
+            let proc = &self.frozen_procs[self.state.selection];
             let result = unsafe {
                 libc::kill(
                     proc.pid.as_u32() as libc::pid_t,
@@ -256,10 +261,10 @@ impl App {
     }
 
     fn refresh(&mut self, interval: f64, last_refresh: &mut Instant) {
-        if self.state.pause_active
-            || self.state.renice_active
-            || self.state.kill_active
-            || self.state.help_active
+        if self.state.mode == Mode::Pause
+            || self.state.mode == Mode::Renice
+            || self.state.mode == Mode::Kill
+            || self.state.mode == Mode::Help
         {
             return;
         }
@@ -299,7 +304,7 @@ impl App {
     }
 
     fn get_processes(&self) -> Vec<ProcessInfo> {
-        if self.state.renice_active || self.state.kill_active {
+        if self.state.mode == Mode::Renice || self.state.mode == Mode::Kill {
             self.frozen_procs.clone()
         } else {
             let all = if self.state.sort_by_mem {
@@ -333,10 +338,10 @@ fn main() {
         if let Some(k) = key {
             let action = app.keys.handle_key(
                 Some(k),
-                app.state.renice_active,
-                app.state.kill_active,
-                app.state.help_active,
-                app.state.pause_active,
+                app.state.mode == Mode::Renice,
+                app.state.mode == Mode::Kill,
+                app.state.mode == Mode::Help,
+                app.state.mode == Mode::Pause,
                 app.frozen_procs.len(),
                 &app.logger,
             );
@@ -370,9 +375,9 @@ fn main() {
             &app.state,
         );
 
-        let sleep_time = if app.state.help_active || app.state.pause_active {
+        let sleep_time = if app.state.mode == Mode::Help || app.state.mode == Mode::Pause {
             50
-        } else if app.state.renice_active || app.state.kill_active {
+        } else if app.state.mode == Mode::Renice || app.state.mode == Mode::Kill {
             if key.is_none() {
                 50
             } else {

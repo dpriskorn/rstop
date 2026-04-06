@@ -21,16 +21,22 @@ use crate::health::HealthFactors;
 use crate::process_list::ProcessInfo;
 use crate::zram_stats::{ZramReader, ZramStats};
 
+#[derive(Default, PartialEq, Clone, Copy)]
+pub enum Mode {
+    #[default]
+    Normal,
+    Pause,
+    Renice,
+    Kill,
+    Help,
+}
+
 pub struct AppState {
     pub sort_by_mem: bool,
-    pub renice_active: bool,
-    pub renice_selection: usize,
-    pub renice_nice_value: i32,
-    pub kill_active: bool,
-    pub kill_selection: usize,
+    pub mode: Mode,
+    pub selection: usize,
+    pub nice_value: i32,
     pub kill_signal: i32,
-    pub help_active: bool,
-    pub pause_active: bool,
     pub advanced: bool,
 }
 
@@ -38,14 +44,10 @@ impl AppState {
     pub fn new() -> Self {
         AppState {
             sort_by_mem: false,
-            renice_active: false,
-            renice_selection: 0,
-            renice_nice_value: 19,
-            kill_active: false,
-            kill_selection: 0,
+            mode: Mode::Normal,
+            selection: 0,
+            nice_value: 19,
             kill_signal: 15,
-            help_active: false,
-            pause_active: false,
             advanced: false,
         }
     }
@@ -262,6 +264,11 @@ impl TuiRenderer {
                 ])
                 .split(area);
 
+            let _footer_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(40), Constraint::Length(20)])
+                .split(chunks[2]);
+
             let header = Paragraph::new(header_text)
                 .block(Block::bordered().title(" System Overview "))
                 .style(Style::default().fg(Color::White));
@@ -281,8 +288,8 @@ impl TuiRenderer {
                         p.name.clone()
                     };
 
-                    let is_selected = (state.renice_active && state.renice_selection == i)
-                        || (state.kill_active && state.kill_selection == i);
+                    let is_selected = (state.mode == Mode::Renice && state.selection == i)
+                        || (state.mode == Mode::Kill && state.selection == i);
 
                     let m = if is_selected { ">" } else { " " };
                     let style = if is_selected {
@@ -333,22 +340,50 @@ impl TuiRenderer {
 
             f.render_widget(table, chunks[1]);
 
-            let mut text = String::from("q=quit | p=pause | a=advanced | h=help | m=mem");
+            let width = chunks[2].width as usize;
 
-            if !state.help_active && !state.renice_active && !state.kill_active {
-                text.push_str(" | r=renice | k=kill");
+            let mut key_parts = vec![
+                Span::styled("[q]", Style::default().fg(Color::Yellow)),
+                Span::styled(
+                    "[p]",
+                    Style::default().fg(if state.mode == Mode::Pause {
+                        Color::Red
+                    } else {
+                        Color::Yellow
+                    }),
+                ),
+                Span::styled("[h]", Style::default().fg(Color::Yellow)),
+                Span::styled("[m]", Style::default().fg(Color::Yellow)),
+            ];
+
+            if state.mode == Mode::Pause {
+                key_parts.push(Span::styled(
+                    "PAUSED",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
             }
 
-            text.push_str(" | interval=2.0s");
-
-            if state.renice_active {
-                text.push_str(&format!(" | RENICE MODE: nice={}", state.renice_nice_value));
-            }
-            if state.kill_active {
-                text.push_str(&format!(" | KILL MODE: signal={}", state.kill_signal));
+            if state.mode == Mode::Normal {
+                key_parts.push(Span::styled("[r]", Style::default().fg(Color::Yellow)));
+                key_parts.push(Span::styled("[k]", Style::default().fg(Color::Yellow)));
             }
 
-            let footer = Paragraph::new(text).style(Style::default().fg(Color::White));
+            if state.mode == Mode::Renice {
+                let nice_text = format!("[nice:{}]", state.nice_value);
+                key_parts.push(Span::styled(nice_text, Style::default().fg(Color::Yellow)));
+            }
+            if state.mode == Mode::Kill {
+                let sig_text = format!("[sig:{}]", state.kill_signal);
+                key_parts.push(Span::styled(sig_text, Style::default().fg(Color::Yellow)));
+            }
+
+            let max_keys = width / 8;
+            key_parts.truncate(max_keys.max(4));
+
+            let footer_text = Line::from(key_parts);
+            let footer = Paragraph::new(footer_text)
+                .style(Style::default().fg(Color::White))
+                .block(Block::bordered().title(" Commands "));
 
             f.render_widget(footer, chunks[2]);
         });
