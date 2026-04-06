@@ -51,7 +51,7 @@ impl ProcessTable {
                 cpu: 0,
                 mem: 0,
                 time: 0,
-                name: String::new(),
+                name: "".to_string(),
             });
         }
 
