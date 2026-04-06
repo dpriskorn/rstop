@@ -1,4 +1,6 @@
 use crate::color::Colors;
+use crate::health::HealthFactors;
+use crate::keyboard_commands::KeyboardCommands;
 use crate::overview::OverviewTable;
 use crate::process_list::ProcessInfo;
 use crate::process_table_render::ProcessTable;
@@ -26,6 +28,7 @@ impl TerminalUI {
         cores: usize,
         health: i32,
         health_label: &str,
+        health_factors: &HealthFactors,
         zram_stats: Option<&crate::zram_stats::ZramStats>,
         zram_reader: &crate::zram_stats::ZramReader,
     ) {
@@ -41,39 +44,13 @@ impl TerminalUI {
             cores,
             health,
             health_label,
+            health_factors,
             zram_stats,
             zram_reader,
         );
     }
 
     pub fn print_advanced_info(&self) {}
-
-    fn build_markers(
-        &self,
-        advanced: bool,
-        help: bool,
-        paused: bool,
-        renice: bool,
-        kill: bool,
-    ) -> String {
-        let mut markers = String::new();
-        if advanced {
-            markers.push_str(&format!(" {}ADVANCED{}", Colors::CYAN, Colors::RESET));
-        }
-        if help {
-            markers.push_str(&format!(" {}HELP{}", Colors::CYAN, Colors::RESET));
-        }
-        if paused {
-            markers.push_str(&format!(" {}PAUSED{}", Colors::YELLOW, Colors::RESET));
-        }
-        if renice {
-            markers.push_str(&format!(" {}RENICE{}", Colors::YELLOW, Colors::RESET));
-        }
-        if kill {
-            markers.push_str(&format!(" {}KILL{}", Colors::RED, Colors::RESET));
-        }
-        markers
-    }
 
     pub fn print_process_list(
         &self,
@@ -88,8 +65,18 @@ impl TerminalUI {
     }
 
     pub fn print_renice_status(&self, nice_value: i32) {
-        println!("\n{}{}RENICE MODE:{}{} nice={}{}{}  {}up/down=select  left/right=nice value  enter=apply{}",
-            Colors::BOLD, Colors::YELLOW, Colors::RESET, Colors::YELLOW, nice_value, Colors::RESET, Colors::CYAN, Colors::RESET, Colors::RESET);
+        println!(
+            "\n{}{}RENICE MODE:{}{} nice={}{}{}  {}up/down=select  left/right=nice value  enter=apply{}",
+            Colors::BOLD,
+            Colors::YELLOW,
+            Colors::RESET,
+            Colors::YELLOW,
+            nice_value,
+            Colors::RESET,
+            Colors::CYAN,
+            Colors::RESET,
+            Colors::RESET
+        );
     }
 
     pub fn print_kill_status(&self, signal: i32) {
@@ -98,8 +85,18 @@ impl TerminalUI {
         } else {
             Colors::GREEN
         };
-        println!("\n{}{}KILL MODE:{}{} signal={}{}{}  {}up/down=select  left/right=toggle signal  enter=send{}",
-            Colors::BOLD, Colors::RED, Colors::RESET, sig_color, signal, Colors::RESET, Colors::CYAN, Colors::RESET, Colors::RESET);
+        println!(
+            "\n{}{}KILL MODE:{}{} signal={}{}{}  {}up/down=select  left/right=toggle signal  enter=send{}",
+            Colors::BOLD,
+            Colors::RED,
+            Colors::RESET,
+            sig_color,
+            signal,
+            Colors::RESET,
+            Colors::CYAN,
+            Colors::RESET,
+            Colors::RESET
+        );
     }
 
     #[allow(dead_code)]
@@ -156,6 +153,7 @@ impl TerminalUI {
         println!("  p      = pause display");
         println!("  a      = advanced mode");
         println!("  h      = toggle this help");
+        println!("  m      = toggle CPU/MEM sort");
         println!("  r      = renice mode");
         println!("  k      = kill mode");
         println!(
@@ -166,16 +164,10 @@ impl TerminalUI {
             Colors::RESET
         );
 
-        let markers = self.build_markers(advanced, false, paused, false, false);
-        print!(
-            "\nq=quit | p=pause | a=advanced | h=help | r=renice | k=kill | interval={:.1}s{}",
-            interval,
-            Colors::RESET
-        );
-        print!("{}", markers);
+        KeyboardCommands::new().print_line(interval);
     }
 
-    pub fn print_footer(
+    pub fn print_keys(
         &self,
         interval: f64,
         advanced: bool,
@@ -184,14 +176,7 @@ impl TerminalUI {
         renice: bool,
         kill: bool,
     ) {
-        let markers = self.build_markers(advanced, help, paused, renice, kill);
-        println!(
-            "\nq=quit | p=pause | a=advanced | h=help | r=renice | k=kill | interval={:.1}s{}",
-            interval,
-            Colors::RESET
-        );
-        print!("{}", markers);
-        std::io::Write::flush(&mut std::io::stdout()).ok();
+        KeyboardCommands::new().print(interval, advanced, help, paused, renice, kill);
     }
 }
 
@@ -221,31 +206,6 @@ mod tests {
     fn test_clear_screen() {
         let ui = TerminalUI::new();
         ui.clear_screen();
-    }
-
-    #[test]
-    fn test_build_markers_empty() {
-        let ui = TerminalUI::new();
-        let result = ui.build_markers(false, false, false, false, false);
-        assert_eq!(result, "");
-    }
-
-    #[test]
-    fn test_build_markers_advanced() {
-        let ui = TerminalUI::new();
-        let result = ui.build_markers(true, false, false, false, false);
-        assert!(result.contains("ADVANCED"));
-    }
-
-    #[test]
-    fn test_build_markers_all() {
-        let ui = TerminalUI::new();
-        let result = ui.build_markers(true, true, true, true, true);
-        assert!(result.contains("ADVANCED"));
-        assert!(result.contains("HELP"));
-        assert!(result.contains("PAUSED"));
-        assert!(result.contains("RENICE"));
-        assert!(result.contains("KILL"));
     }
 
     #[test]

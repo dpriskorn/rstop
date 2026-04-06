@@ -4,7 +4,9 @@ use std::time::Instant;
 mod color;
 mod config;
 mod filter;
+mod health;
 mod input;
+mod keyboard_commands;
 mod keys;
 mod logger;
 mod modes;
@@ -18,6 +20,7 @@ mod zram_stats;
 
 use config::Config;
 use filter::ProcessFilter;
+use health::{HealthCalculator, HealthFactors};
 use input::InputHandler;
 use keys::{KeyAction, Keys};
 use logger::Logger;
@@ -25,7 +28,8 @@ use modes::help::HelpMode;
 use modes::kill::KillMode;
 use modes::pause::PauseMode;
 use modes::renice::ReniceMode;
-use process_list::{HealthCalculator, ProcessInfo, ProcessList};
+use modes::sort::SortMode;
+use process_list::{ProcessInfo, ProcessList};
 use system_monitor::SystemMonitor;
 use ui::TerminalUI;
 use zram_stats::ZramReader;
@@ -78,6 +82,7 @@ fn main() {
     let mut kill_mode = KillMode::new();
     let mut pause_mode = PauseMode::new();
     let mut help_mode = HelpMode::new();
+    let mut sort_mode = SortMode::new();
 
     let mut advanced = false;
 
@@ -91,6 +96,12 @@ fn main() {
     let mut cores = 1;
     let mut health = 100;
     let mut health_label = "EXCELLENT";
+    let mut health_factors = HealthFactors {
+        mem_penalty: 0,
+        swap_penalty: 0,
+        load_penalty: 0,
+        zram_penalty: 0,
+    };
 
     let mut zram_stats: Option<zram_stats::ZramStats> = None;
     let mut frozen_procs: Vec<process_list::ProcessInfo> = Vec::new();
@@ -134,10 +145,18 @@ fn main() {
                     help_mode.toggle();
                     logger.info(&format!("Help toggled: {}", help_mode.active));
                 }
+                KeyAction::ToggleSort => {
+                    sort_mode.toggle();
+                    logger.info(&format!("Sort by MEM: {}", sort_mode.sort_by_mem));
+                }
                 KeyAction::ActivateRenice => {
                     renice_mode.activate();
                     kill_mode.deactivate();
-                    let all = process_list.top_by_cpu(30);
+                    let all = if sort_mode.sort_by_mem {
+                        process_list.top_by_mem(30)
+                    } else {
+                        process_list.top_by_cpu(30)
+                    };
                     let owned: Vec<ProcessInfo> = all.into_iter().cloned().collect();
                     frozen_procs = process_filter.filter_owned(owned);
                     logger.info("Renice mode activated");
@@ -145,7 +164,11 @@ fn main() {
                 KeyAction::ActivateKill => {
                     kill_mode.activate();
                     renice_mode.deactivate();
-                    let all = process_list.top_by_cpu(30);
+                    let all = if sort_mode.sort_by_mem {
+                        process_list.top_by_mem(30)
+                    } else {
+                        process_list.top_by_cpu(30)
+                    };
                     let owned: Vec<ProcessInfo> = all.into_iter().cloned().collect();
                     frozen_procs = process_filter.filter_owned(owned);
                     logger.info("Kill mode activated");
@@ -257,7 +280,8 @@ fn main() {
             }
         }
 
-        let should_refresh = !(pause_mode.active || renice_mode.active || kill_mode.active);
+        let should_refresh =
+            !(pause_mode.active || renice_mode.active || kill_mode.active || help_mode.active);
 
         if should_refresh {
             let start = Instant::now();
@@ -295,13 +319,8 @@ fn main() {
             );
             health = h;
             health_label = label;
-        }
-
-        if renice_mode.active || kill_mode.active {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            if key.is_none() {
-                continue;
-            }
+            health_factors =
+                HealthFactors::calculate(mem_percent, zram_swap_percent, load1, zram_ratio, cores);
         }
 
         if help_mode.active {
@@ -330,6 +349,7 @@ fn main() {
             cores,
             health,
             health_label,
+            &health_factors,
             zram_stats.as_ref(),
             &zram_reader,
         );
@@ -338,7 +358,11 @@ fn main() {
             ui.print_advanced_info();
         }
 
-        let all_procs = process_list.top_by_cpu(30);
+        let all_procs = if sort_mode.sort_by_mem {
+            process_list.top_by_mem(30)
+        } else {
+            process_list.top_by_cpu(30)
+        };
         let filtered_procs = process_filter.filter(&all_procs);
 
         let procs: Vec<&ProcessInfo> = if renice_mode.active || kill_mode.active {

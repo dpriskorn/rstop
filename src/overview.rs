@@ -1,4 +1,5 @@
 use crate::color::{ColorScheme, Colors};
+use crate::health::HealthFactors;
 use crate::zram_stats::{ZramReader, ZramStats};
 use tabled::{
     settings::{object::Rows, Remove, Style},
@@ -30,6 +31,7 @@ impl OverviewTable {
         cores: usize,
         health: i32,
         health_label: &str,
+        health_factors: &HealthFactors,
         zram_stats: Option<&ZramStats>,
         zram_reader: &ZramReader,
     ) {
@@ -51,6 +53,52 @@ impl OverviewTable {
                     health,
                     health_label,
                     Colors::RESET
+                ),
+            },
+            OverviewRow {
+                label: "FACTORS".to_string(),
+                value: format!(
+                    "{}{} {}{} {}{} {}{}",
+                    if health_factors.mem_penalty > 0 {
+                        Colors::RED
+                    } else {
+                        Colors::GREEN
+                    },
+                    if health_factors.mem_penalty > 0 {
+                        format!("-{}", health_factors.mem_penalty)
+                    } else {
+                        "0".to_string()
+                    },
+                    if health_factors.swap_penalty > 0 {
+                        Colors::RED
+                    } else {
+                        Colors::GREEN
+                    },
+                    if health_factors.swap_penalty > 0 {
+                        format!("-{}", health_factors.swap_penalty)
+                    } else {
+                        "0".to_string()
+                    },
+                    if health_factors.load_penalty > 0 {
+                        Colors::RED
+                    } else {
+                        Colors::GREEN
+                    },
+                    if health_factors.load_penalty > 0 {
+                        format!("-{}", health_factors.load_penalty)
+                    } else {
+                        "0".to_string()
+                    },
+                    if health_factors.zram_penalty != 0 {
+                        if health_factors.zram_penalty > 0 {
+                            Colors::RED
+                        } else {
+                            Colors::GREEN
+                        }
+                    } else {
+                        Colors::GREEN
+                    },
+                    format!("{:+}", health_factors.zram_penalty),
                 ),
             },
             OverviewRow {

@@ -5,6 +5,7 @@ pub enum KeyAction {
     TogglePause,
     ToggleAdvanced,
     ToggleHelp,
+    ToggleSort,
     ActivateRenice,
     ActivateKill,
     ExecuteAction,
@@ -66,6 +67,14 @@ impl Keys {
                 } else {
                     logger.debug("Key: ToggleHelp");
                     KeyAction::ToggleHelp
+                }
+            }
+            Some(b'm' | b'M') => {
+                if help_active || renice_active || kill_active {
+                    KeyAction::None
+                } else {
+                    logger.debug("Key: ToggleSort");
+                    KeyAction::ToggleSort
                 }
             }
             Some(b'r' | b'R') => {
