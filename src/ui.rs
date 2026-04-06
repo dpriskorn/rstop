@@ -19,7 +19,6 @@ impl TerminalUI {
     pub fn print_header(
         &self,
         cpu: f32,
-        mem_percent: f32,
         zram_swap_percent: f32,
         disk_swap_percent: f32,
         load1: f64,
@@ -35,7 +34,6 @@ impl TerminalUI {
         let overview = OverviewTable::new();
         overview.print(
             cpu,
-            mem_percent,
             zram_swap_percent,
             disk_swap_percent,
             load1,

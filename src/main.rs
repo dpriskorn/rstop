@@ -312,16 +312,21 @@ fn main() {
                 .unwrap_or(0.0);
 
             let (h, label) = HealthCalculator::calculate(
-                mem_percent,
                 zram_swap_percent,
+                disk_swap_percent,
                 load1,
                 zram_ratio,
                 cores,
             );
             health = h;
             health_label = label;
-            health_factors =
-                HealthFactors::calculate(mem_percent, zram_swap_percent, load1, zram_ratio, cores);
+            health_factors = HealthFactors::calculate(
+                zram_swap_percent,
+                disk_swap_percent,
+                load1,
+                zram_ratio,
+                cores,
+            );
         }
 
         if help_mode.active {
@@ -343,7 +348,6 @@ fn main() {
         let start = Instant::now();
         ui.print_header(
             cpu,
-            mem_percent,
             zram_swap_percent,
             disk_swap_percent,
             load1,

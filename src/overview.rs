@@ -22,7 +22,6 @@ impl OverviewTable {
     pub fn print(
         &self,
         cpu: f32,
-        mem_percent: f32,
         zram_swap_percent: f32,
         disk_swap_percent: f32,
         load1: f64,
@@ -58,59 +57,56 @@ impl OverviewTable {
             OverviewRow {
                 label: "PENALTIES".to_string(),
                 value: format!(
-                    "mem={}{}{} swap={}{}{} load={}{}{} zram={}{}",
-                    if health_factors.mem_penalty > 0 {
-                        Colors::RED
-                    } else {
-                        Colors::GREEN
-                    },
-                    if health_factors.mem_penalty > 0 {
-                        format!("-{}", health_factors.mem_penalty)
-                    } else {
-                        "0".to_string()
-                    },
-                    Colors::RESET,
+                    "disk_swap={} load={} zram_ratio={}",
                     if health_factors.swap_penalty > 0 {
-                        Colors::RED
+                        format!(
+                            "{}-{}{}",
+                            Colors::RED,
+                            health_factors.swap_penalty,
+                            Colors::RESET
+                        )
                     } else {
-                        Colors::GREEN
-                    },
-                    if health_factors.swap_penalty > 0 {
-                        format!("-{}", health_factors.swap_penalty)
-                    } else {
-                        "0".to_string()
-                    },
-                    Colors::RESET,
-                    if health_factors.load_penalty > 0 {
-                        Colors::RED
-                    } else {
-                        Colors::GREEN
+                        format!("{}0{}", Colors::GREEN, Colors::RESET)
                     },
                     if health_factors.load_penalty > 0 {
-                        format!("-{}", health_factors.load_penalty)
+                        format!(
+                            "{}-{}{}",
+                            Colors::RED,
+                            health_factors.load_penalty,
+                            Colors::RESET
+                        )
                     } else {
-                        "0".to_string()
+                        format!("{}0{}", Colors::GREEN, Colors::RESET)
                     },
-                    Colors::RESET,
                     if health_factors.zram_penalty != 0 {
                         if health_factors.zram_penalty > 0 {
-                            Colors::RED
+                            format!(
+                                "{}{:+}{}",
+                                Colors::RED,
+                                health_factors.zram_penalty,
+                                Colors::RESET
+                            )
                         } else {
-                            Colors::GREEN
+                            format!(
+                                "{}{:+}{}",
+                                Colors::GREEN,
+                                health_factors.zram_penalty,
+                                Colors::RESET
+                            )
                         }
                     } else {
-                        Colors::GREEN
+                        format!(
+                            "{}{:+}{}",
+                            Colors::GREEN,
+                            health_factors.zram_penalty,
+                            Colors::RESET
+                        )
                     },
-                    format!("{:+}", health_factors.zram_penalty),
                 ),
             },
             OverviewRow {
                 label: "CPU".to_string(),
                 value: format!("{}{:.0}%{}", cpu_color, cpu, Colors::RESET),
-            },
-            OverviewRow {
-                label: "RAM".to_string(),
-                value: format!("{}{:.0}%{}", Colors::WHITE, mem_percent, Colors::RESET),
             },
         ];
 
