@@ -81,11 +81,42 @@ fn main() {
             logger.debug(&format!("Key pressed: {}", k));
 
             match k {
-                b'p' => {
+                b'p' | b'P' => {
                     paused = !paused;
                     logger.info(&format!("Pause toggled: {}", paused));
                 }
-                b'q' => {
+                b'q' | b'Q' => {
+                    break;
+                }
+                0x1b => {
+                    if renice_mode.active || kill_mode.active {
+                        renice_mode.deactivate();
+                        kill_mode.deactivate();
+                    } else {
+                        break;
+                    }
+                }
+                b'a' | b'A' => {
+                    advanced = !advanced;
+                    logger.info(&format!("Advanced toggled: {}", advanced));
+                }
+                b'h' | b'H' => {
+                    help = !help;
+                    logger.info(&format!("Help toggled: {}", help));
+                }
+                b'r' | b'R' => {
+                    renice_mode.activate();
+                    kill_mode.deactivate();
+                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
+                    logger.info("Renice mode activated");
+                }
+                b'k' | b'K' => {
+                    kill_mode.activate();
+                    renice_mode.deactivate();
+                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
+                    logger.info("Kill mode activated");
+                }
+                b'q' | b'Q' => {
                     break;
                 }
                 0x1b => {
