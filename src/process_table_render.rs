@@ -16,6 +16,8 @@ impl ProcessTable {
         kill_active: bool,
         kill_sel: usize,
     ) {
+        const MAX_ROWS: usize = 10;
+
         let rows: Vec<Row> = processes
             .iter()
             .enumerate()
@@ -39,8 +41,22 @@ impl ProcessTable {
             })
             .collect();
 
-        if !rows.is_empty() {
-            let mut table = Table::new(&rows);
+        let empty_rows = MAX_ROWS.saturating_sub(rows.len());
+        let mut all_rows = rows;
+        for _ in 0..empty_rows {
+            all_rows.push(Row {
+                m: " ",
+                pid: 0,
+                ni: 0,
+                cpu: 0,
+                mem: 0,
+                time: 0,
+                name: String::new(),
+            });
+        }
+
+        if !all_rows.is_empty() {
+            let mut table = Table::new(&all_rows);
             table.with(Style::empty());
             println!("\n{}", table);
         }
