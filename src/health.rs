@@ -29,9 +29,11 @@ impl HealthFactors {
             load_penalty = 10;
         }
 
-        if zram_ratio > 0.0 && zram_ratio < 1.8 {
+        if zram_ratio > 0.0 && zram_ratio < 1.5 {
             zram_penalty = -10;
-        } else if zram_ratio > 3.5 {
+        } else if zram_ratio >= 1.5 && zram_ratio < 2.0 {
+            zram_penalty = -5;
+        } else if zram_ratio > 3.0 {
             zram_penalty = 5;
         }
 
@@ -68,9 +70,11 @@ impl HealthCalculator {
         }
 
         if zram_ratio > 0.0 {
-            if zram_ratio < 1.8 {
+            if zram_ratio < 1.5 {
                 score -= 10;
-            } else if zram_ratio > 3.5 {
+            } else if zram_ratio < 2.0 {
+                score -= 5;
+            } else if zram_ratio > 3.0 {
                 score += 5;
             }
         }
