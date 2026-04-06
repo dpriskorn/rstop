@@ -99,6 +99,7 @@ impl ColorScheme {
         }
     }
 
+    #[allow(dead_code)]
     pub fn color_for_percent(&self, value: f32, threshold: f32) -> &'static str {
         if value > threshold {
             Colors::RED

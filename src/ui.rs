@@ -100,16 +100,7 @@ impl TerminalUI {
             Colors::BOLD, Colors::RED, Colors::RESET, sig_color, signal, Colors::RESET, Colors::CYAN, Colors::RESET, Colors::RESET);
     }
 
-    pub fn print_error(&self, message: &str) {
-        println!(
-            "\n{}{}Error: {}{}",
-            Colors::BOLD,
-            Colors::RED,
-            message,
-            Colors::RESET
-        );
-    }
-
+    #[allow(dead_code)]
     pub fn print_error_in_footer(&self, message: &str) {
         println!("{}{}", Colors::RED, message);
     }

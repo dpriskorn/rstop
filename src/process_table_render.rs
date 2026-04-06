@@ -2,7 +2,7 @@ use crate::process_list::ProcessInfo;
 use std::fmt;
 use tabled::{settings::Style, Table, Tabled};
 
-struct MaybeEmpty<T>(Option<T>);
+pub struct MaybeEmpty<T>(Option<T>);
 
 impl<T: fmt::Display> fmt::Display for MaybeEmpty<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

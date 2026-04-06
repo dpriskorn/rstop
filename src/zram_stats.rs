@@ -36,6 +36,7 @@ impl ZramReader {
         }
     }
 
+    #[allow(dead_code)]
     pub fn saved_bytes(&self, stats: &ZramStats) -> i64 {
         stats.orig as i64 - stats.compr as i64
     }

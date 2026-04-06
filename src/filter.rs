@@ -13,10 +13,12 @@ impl ProcessFilter {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_config(min_cpu: f32, exclude_names: Vec<String>) -> Self {
         Self::new(min_cpu, exclude_names)
     }
 
+    #[allow(dead_code)]
     pub fn set_min_cpu(&mut self, min_cpu: f32) {
         self.min_cpu = min_cpu;
     }

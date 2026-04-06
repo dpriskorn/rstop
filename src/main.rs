@@ -1,8 +1,6 @@
 use clap::Parser;
 use std::time::Instant;
 
-const APP_NAME: &str = "rtop";
-
 mod color;
 mod config;
 mod filter;
@@ -71,7 +69,7 @@ fn main() {
     let keys = Keys::new();
     let mut monitor = SystemMonitor::new();
     let mut process_list = ProcessList::new();
-    let mut process_filter = ProcessFilter::new(min_cpu, exclude_names);
+    let process_filter = ProcessFilter::new(min_cpu, exclude_names);
     let zram_reader = ZramReader::new();
     let ui = TerminalUI::new();
 
@@ -102,7 +100,7 @@ fn main() {
 
         let skip_render = (renice_mode.active || kill_mode.active) && key.is_none();
 
-        if let Some(k) = key {
+        if let Some(_k) = key {
             let action = keys.handle_key(
                 key,
                 renice_mode.active,

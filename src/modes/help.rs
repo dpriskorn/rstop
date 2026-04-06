@@ -11,6 +11,7 @@ impl HelpMode {
         self.active = !self.active;
     }
 
+    #[allow(dead_code)]
     pub fn activate(&mut self) {
         self.active = true;
     }
