@@ -27,11 +27,26 @@ struct Args {
     interval: f64,
 }
 
+fn enable_raw_mode() -> libc::termios {
+    let mut term = unsafe { std::mem::zeroed() };
+    unsafe { libc::tcgetattr(0, &mut term) };
+    let original = term;
+    term.c_lflag &= !(libc::ICANON | libc::ECHO);
+    unsafe { libc::tcsetattr(0, libc::TCSANOW, &term) };
+    original
+}
+
+fn disable_raw_mode(termios: &libc::termios) {
+    unsafe { libc::tcsetattr(0, libc::TCSANOW, termios) };
+}
+
 fn main() {
     let args = Args::parse();
     let logger = Logger::new();
 
     logger.info("Starting RTOP");
+
+    let original_termios = enable_raw_mode();
 
     let mut input = InputHandler::new();
     let mut monitor = SystemMonitor::new();
@@ -276,5 +291,6 @@ fn main() {
         }
     }
 
+    disable_raw_mode(&original_termios);
     logger.info("Exiting RTOP");
 }
