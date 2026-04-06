@@ -102,8 +102,6 @@ impl ProcessTable {
 
         let mut table = Table::new(&all_rows);
         table.with(Style::empty());
-        // Ta bort Remove för att visa data
-        // NOT using Remove - keeping auto header
 
         if selected_row < all_rows.len() {
             let sel = selected_row + 1;
@@ -113,19 +111,9 @@ impl ProcessTable {
         }
 
         println!("");
-        print!(
-            "{}{}  {}  {}  {}  {}  {}  {}{}",
-            Colors::BOLD,
-            " ",
-            "PID",
-            "NI",
-            "CPU",
-            "MEM",
-            "TIME",
-            "NAME",
-            Colors::RESET
-        );
-        println!("");
+        table.with(Modify::new(Rows::new(1..=1)).with(Format::content(|s| {
+            format!("{}{}{}", Colors::BOLD, s.to_uppercase(), Colors::RESET)
+        })));
         println!("{}", table);
     }
 }
