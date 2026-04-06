@@ -54,7 +54,7 @@ impl Keys {
                 }
             }
             Some(b'a' | b'A') => {
-                if help_active || renice_active || kill_active {
+                if renice_active || kill_active {
                     KeyAction::None
                 } else {
                     logger.debug("Key: ToggleAdvanced");
@@ -62,7 +62,7 @@ impl Keys {
                 }
             }
             Some(b'h' | b'H') => {
-                if help_active || renice_active || kill_active {
+                if renice_active || kill_active {
                     KeyAction::None
                 } else {
                     logger.debug("Key: ToggleHelp");

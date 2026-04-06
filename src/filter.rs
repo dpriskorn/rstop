@@ -1,21 +1,24 @@
+use crate::constants::{MIN_CPU, SORT_MIN_MEM_DEFAULT};
 use crate::process_list::ProcessInfo;
 
 pub struct ProcessFilter {
     pub min_cpu: f32,
+    pub min_mem: u64,
     pub exclude_names: Vec<String>,
 }
 
 impl ProcessFilter {
-    pub fn new(min_cpu: f32, exclude_names: Vec<String>) -> Self {
+    pub fn new(min_cpu: f32, min_mem: u64, exclude_names: Vec<String>) -> Self {
         ProcessFilter {
             min_cpu,
+            min_mem,
             exclude_names,
         }
     }
 
     #[allow(dead_code)]
     pub fn from_config(min_cpu: f32, exclude_names: Vec<String>) -> Self {
-        Self::new(min_cpu, exclude_names)
+        Self::new(min_cpu, SORT_MIN_MEM_DEFAULT, exclude_names)
     }
 
     #[allow(dead_code)]
@@ -24,17 +27,20 @@ impl ProcessFilter {
     }
 
     #[allow(dead_code)]
-    pub fn filter_owned(&self, processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
-        processes
-            .into_iter()
-            .filter(|p| p.cpu >= self.min_cpu && !self.should_exclude(&p.name))
-            .collect()
+    pub fn set_min_mem(&mut self, min_mem: u64) {
+        self.min_mem = min_mem;
     }
 
-    pub fn filter<'a>(&self, processes: &'a [&ProcessInfo]) -> Vec<ProcessInfo> {
+    pub fn filter<'a>(&self, processes: &'a [&ProcessInfo], sort_by_mem: bool) -> Vec<ProcessInfo> {
         processes
             .iter()
-            .filter(|p| p.cpu >= self.min_cpu && !self.should_exclude(&p.name))
+            .filter(|p| {
+                if sort_by_mem {
+                    p.mem >= self.min_mem && !self.should_exclude(&p.name)
+                } else {
+                    p.cpu >= self.min_cpu && !self.should_exclude(&p.name)
+                }
+            })
             .map(|p| (*p).clone())
             .collect()
     }
@@ -46,7 +52,11 @@ impl ProcessFilter {
 
 impl Default for ProcessFilter {
     fn default() -> Self {
-        Self::new(10.0, vec!["HeapHelper".to_string()])
+        Self::new(
+            MIN_CPU,
+            SORT_MIN_MEM_DEFAULT,
+            vec!["HeapHelper".to_string()],
+        )
     }
 }
 
@@ -69,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_filter_creation() {
-        let filter = ProcessFilter::new(10.0, vec!["HeapHelper".to_string()]);
+        let filter = ProcessFilter::new(10.0, SORT_MIN_MEM_DEFAULT, vec!["HeapHelper".to_string()]);
         assert_eq!(filter.min_cpu, 10.0);
         assert!(filter.exclude_names.contains(&"HeapHelper".to_string()));
     }
@@ -91,13 +101,13 @@ mod tests {
 
     #[test]
     fn test_filter_by_cpu_and_name() {
-        let filter = ProcessFilter::new(50.0, vec!["HeapHelper".to_string()]);
+        let filter = ProcessFilter::new(50.0, SORT_MIN_MEM_DEFAULT, vec!["HeapHelper".to_string()]);
 
         let p1 = make_process("HeapHelper", 100.0);
         let p2 = make_process("other", 60.0);
         let p3 = make_process("test", 40.0);
         let processes: Vec<ProcessInfo> = vec![p1, p2, p3];
-        let filtered = filter.filter_owned(processes);
+        let filtered = filter.filter_owned(processes, false);
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "other");

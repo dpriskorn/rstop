@@ -127,7 +127,7 @@ impl TuiRenderer {
 
             // Process table or Help
             if state.mode == Mode::Help {
-                render_help_mode(f, chunks[1], processes, state);
+                render_help_mode(f, chunks[1]);
             } else {
                 render_process_table(f, chunks[1], processes, state);
             }
@@ -211,25 +211,38 @@ fn render_help_mode(f: &mut Frame, area: Rect) {
     use ratatui::widgets::Borders;
 
     let help_text = r#"
-╔═══════════════════════════════════════════════════════════════╗
-║                         HOTKEYS                               ║
-╠═══════════════════════════════════════════════════════════════╣
-║  [q]  Quit              - Exit the application               ║
-║  [p]  Pause             - Toggle pause/resume                ║
-║  [h]  Help              - Show this help                      ║
-║  [m]  Memory Sort       - Sort by memory usage               ║
-║  [r]  Renice Mode       - Change process priority            ║
-║  [k]  Kill Mode         - Send signal to process             ║
-║  [↑/↓] Navigate         - Select process                     ║
-║  [Enter] Execute        - Apply renice/kill                  ║
-║  [Esc] Cancel           - Exit current mode                  ║
-╚═══════════════════════════════════════════════════════════════╝
+════════════════════════════════════════════════════════════════
+                    RSTOP - HELP & HOTKEYS
+════════════════════════════════════════════════════════════════
+
+ZRAM RATIO:
+  orig    = original data size before compression
+  compr   = compressed size in zram
+  ratio   = orig / compr (higher = better compression)
+  saved   = orig - compr (actual RAM saved)
+  Example: ratio 4.0x means 1000MB compresses to 250MB
+
+HEALTH SCORE:
+  Based on: SWAP%, LOAD, ZRAM ratio
+  85+  = EXCELLENT   70-84 = GOOD   50-69 = OK   0-49 = STRESSED
+
+HOTKEYS:
+  [q]  Quit           Exit the application
+  [p]  Pause          Toggle pause/resume display
+  [h]  Help           Toggle this help screen
+  [m]  Memory Sort    Sort by memory usage
+  [r]  Renice Mode   Change process priority (nice value)
+  [k]  Kill Mode     Send signal to process
+  [↑]  Navigate Up   Select previous process
+  [↓]  Navigate Down Select next process
+  [Enter] Execute    Apply renice or kill to selected
+  [Esc]  Cancel      Exit current mode
+════════════════════════════════════════════════════════════════
 "#;
 
     let help = Paragraph::new(help_text)
         .style(Style::default().fg(Color::White))
-        .block(Block::bordered().title(" Help ").borders(Borders::ALL))
-        .alignment(ratatui::text::Alignment::Center);
+        .block(Block::bordered().title(" Help ").borders(Borders::ALL));
 
     f.render_widget(help, area);
 }

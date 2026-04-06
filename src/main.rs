@@ -3,6 +3,7 @@ use std::time::Instant;
 
 mod color;
 mod config;
+mod constants;
 mod filter;
 mod health;
 mod keys;
@@ -14,6 +15,7 @@ mod tui;
 mod zram_stats;
 
 use config::Config;
+use constants::*;
 use filter::ProcessFilter;
 use health::{HealthCalculator, HealthFactors};
 use keys::{KeyAction, Keys};
@@ -56,11 +58,11 @@ struct App {
 }
 
 impl App {
-    fn new(min_cpu: f32, exclude_names: Vec<String>, logger: Logger) -> Self {
+    fn new(min_cpu: f32, min_mem: u64, exclude_names: Vec<String>, logger: Logger) -> Self {
         App {
             monitor: SystemMonitor::new(),
             process_list: ProcessList::new(),
-            process_filter: ProcessFilter::new(min_cpu, exclude_names),
+            process_filter: ProcessFilter::new(min_cpu, min_mem, exclude_names),
             zram_reader: ZramReader::new(),
             keys: Keys::new(),
             logger,
@@ -126,9 +128,9 @@ impl App {
                 self.state.mode = Mode::Renice;
                 self.state.selection = 0;
                 self.frozen_procs = if self.state.sort_by_mem {
-                    self.process_list.top_by_mem(30)
+                    self.process_list.top_by_mem(PROCESS_LIMIT)
                 } else {
-                    self.process_list.top_by_cpu(30)
+                    self.process_list.top_by_cpu(PROCESS_LIMIT)
                 }
                 .into_iter()
                 .cloned()
@@ -142,9 +144,9 @@ impl App {
                 self.state.mode = Mode::Kill;
                 self.state.selection = 0;
                 self.frozen_procs = if self.state.sort_by_mem {
-                    self.process_list.top_by_mem(30)
+                    self.process_list.top_by_mem(PROCESS_LIMIT)
                 } else {
-                    self.process_list.top_by_cpu(30)
+                    self.process_list.top_by_cpu(PROCESS_LIMIT)
                 }
                 .into_iter()
                 .cloned()
@@ -319,11 +321,11 @@ impl App {
             self.frozen_procs.clone()
         } else {
             let all = if self.state.sort_by_mem {
-                self.process_list.top_by_mem(30)
+                self.process_list.top_by_mem(PROCESS_LIMIT)
             } else {
-                self.process_list.top_by_cpu(30)
+                self.process_list.top_by_cpu(PROCESS_LIMIT)
             };
-            self.process_filter.filter(&all)
+            self.process_filter.filter(&all, self.state.sort_by_mem)
         }
     }
 }
@@ -333,12 +335,12 @@ fn main() {
     let logger = Logger::new();
     let config = Config::load();
 
-    let (min_cpu, exclude_names, interval) =
+    let (min_cpu, min_mem, exclude_names, interval) =
         config.merge_with_args(args.min_cpu, args.exclude, args.interval);
 
     logger.info("Starting RTOP");
 
-    let mut app = App::new(min_cpu as f32, exclude_names, logger);
+    let mut app = App::new(min_cpu, min_mem, exclude_names, logger);
     let mut tui = TuiRenderer::new().expect("Failed to initialize TUI");
 
     let mut last_refresh = Instant::now();
