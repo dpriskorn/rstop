@@ -205,9 +205,23 @@ impl App {
             ));
             let is_root = unsafe { libc::geteuid() } == 0;
 
-            if self.state.nice_value < 1 && !is_root {
-                self.logger
-                    .error(&format!("Cannot renice PID {} - run as root", proc.pid));
+            // Non-root users cannot decrease nice value (make process higher priority)
+            // nice_value < 0 means trying to increase priority, which requires root
+            if self.state.nice_value < 0 && !is_root {
+                self.logger.error(&format!(
+                    "Cannot renice PID {} to {} - requires root (tried to increase priority)",
+                    proc.pid, self.state.nice_value
+                ));
+                self.state.mode = Mode::Normal;
+                return;
+            }
+
+            // Nice value must be in valid range -20 to 19
+            if self.state.nice_value < -20 || self.state.nice_value > 19 {
+                self.logger.error(&format!(
+                    "Invalid nice value {} - must be between -20 and 19",
+                    self.state.nice_value
+                ));
                 self.state.mode = Mode::Normal;
                 return;
             }
@@ -221,24 +235,21 @@ impl App {
             };
 
             let errno_val = unsafe { *libc::__errno_location() };
-            self.logger.info(&format!(
-                "setpriority result={}, errno={}",
-                result, errno_val
-            ));
 
-            if result == 0 {
-                self.logger.info(&format!(
-                    "Reniced PID {} to {}",
-                    proc.pid, self.state.nice_value
-                ));
-                self.state.mode = Mode::Normal;
-            } else {
+            if result != 0 {
                 self.logger.error(&format!(
-                    "Failed to renice PID {}, errno={}",
+                    "Failed to renice PID {} - errno={} (permission denied or invalid value)",
                     proc.pid, errno_val
                 ));
                 self.state.mode = Mode::Normal;
+                return;
             }
+
+            self.logger.info(&format!(
+                "Reniced PID {} to {}",
+                proc.pid, self.state.nice_value
+            ));
+            self.state.mode = Mode::Normal;
         }
         if self.state.mode == Mode::Kill && self.state.selection < self.frozen_procs.len() {
             let proc = &self.frozen_procs[self.state.selection];
