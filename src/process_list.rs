@@ -106,7 +106,7 @@ impl HealthCalculator {
             }
         }
 
-        let score = score.max(0).min(100);
+        let score = score.clamp(0, 100);
         let label = if score >= 85 {
             "EXCELLENT"
         } else if score >= 70 {

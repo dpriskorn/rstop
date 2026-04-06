@@ -60,7 +60,7 @@ impl SystemMonitor {
             .unwrap_or_else(|| vec![0.0, 0.0, 0.0]);
 
         (
-            content.get(0).copied().unwrap_or(0.0),
+            content.first().copied().unwrap_or(0.0),
             content.get(1).copied().unwrap_or(0.0),
             content.get(2).copied().unwrap_or(0.0),
         )

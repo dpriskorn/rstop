@@ -5,6 +5,7 @@ mod input;
 mod logger;
 mod modes;
 mod process_list;
+mod process_table_render;
 mod system_monitor;
 mod ui;
 mod zram_stats;
@@ -165,11 +166,7 @@ fn main() {
             }
         }
 
-        let should_refresh = if paused || renice_mode.active || kill_mode.active {
-            false
-        } else {
-            true
-        };
+        let should_refresh = !(paused || renice_mode.active || kill_mode.active);
 
         if should_refresh {
             let start = Instant::now();

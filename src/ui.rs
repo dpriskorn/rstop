@@ -1,4 +1,5 @@
 use crate::process_list::ProcessInfo;
+use crate::process_table_render::ProcessTable;
 
 pub struct Colors;
 
@@ -23,7 +24,7 @@ impl TerminalUI {
     }
 
     pub fn clear_screen(&self) {
-        print!("{}{}", Colors::RESET, "\x1b[2J\x1b[H");
+        print!("{}\x1b[2J\x1b[H", Colors::RESET);
     }
 
     fn color_for_load(&self, load: f64, cores: usize) -> &'static str {
@@ -106,6 +107,7 @@ impl TerminalUI {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn print_advanced_info(
         &self,
         load5: f64,
@@ -194,51 +196,8 @@ impl TerminalUI {
         kill_active: bool,
         kill_sel: usize,
     ) {
-        println!(
-            "\n{}{}  PID  NI  CPU(%)  MEM(MB)  TIME   COMMAND{}",
-            Colors::BOLD,
-            Colors::WHITE,
-            Colors::RESET
-        );
-
-        for (i, p) in processes.iter().enumerate() {
-            let selected = (renice_active && i == renice_sel) || (kill_active && i == kill_sel);
-            let marker = if selected { ">" } else { " " };
-            let display_name = if p.name.len() > 20 {
-                p.name.chars().take(20).collect::<String>()
-            } else {
-                p.name.clone()
-            };
-
-            let mem_mb = (p.mem as f64 / 1024.0 / 1024.0).round() as u64;
-            let time_min = p.time / 60;
-
-            if selected {
-                println!(
-                    "{} {}  {}  {}  {}  {}  {}{}{}",
-                    marker,
-                    p.pid,
-                    p.nice,
-                    p.cpu.round() as u64,
-                    mem_mb,
-                    time_min,
-                    Colors::BOLD,
-                    display_name,
-                    Colors::RESET
-                );
-            } else {
-                println!(
-                    "{} {}  {}  {}  {}  {}  {}",
-                    marker,
-                    p.pid,
-                    p.nice,
-                    p.cpu.round() as u64,
-                    mem_mb,
-                    time_min,
-                    display_name
-                );
-            }
-        }
+        let table = ProcessTable::new();
+        table.print(processes, renice_active, renice_sel, kill_active, kill_sel);
     }
 
     pub fn print_renice_status(&self, nice_value: i32) {

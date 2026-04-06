@@ -21,6 +21,12 @@ The application should be refactored to use OOP principles with separate files:
 - `src/modes/pause.rs` - Pause mode logic
 - `src/modes/help.rs` - Help mode logic
 - `src/input.rs` - Keyboard input handling
+- `src/process_table.rs` - Process table rendering using tabled crate
+
+### Architecture Rules
+
+1. **All UI must go through ui.rs** - No direct printing from main.rs or other modules
+2. UI-related logic (headers, footers, help, process tables) should be in ui.rs or called via ui.rs
 
 ### Debugging
 
