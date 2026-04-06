@@ -55,11 +55,11 @@ impl OverviewTable {
             },
             OverviewRow {
                 label: "CPU".to_string(),
-                value: format!("{}{:.1}%{}", cpu_color, cpu, Colors::RESET),
+                value: format!("{}{:.0}%{}", cpu_color, cpu, Colors::RESET),
             },
             OverviewRow {
                 label: "RAM".to_string(),
-                value: format!("{}{:.1}%{}", Colors::WHITE, mem_percent, Colors::RESET),
+                value: format!("{}{:.0}%{}", Colors::WHITE, mem_percent, Colors::RESET),
             },
         ];
 
@@ -74,12 +74,12 @@ impl OverviewTable {
 
         rows.push(OverviewRow {
             label: "SWAP(ZRAM)".to_string(),
-            value: format!("{}{:.1}%{}", swap_color, zram_swap_percent, Colors::RESET),
+            value: format!("{}{:.0}%{}", swap_color, zram_swap_percent, Colors::RESET),
         });
         rows.push(OverviewRow {
             label: "SWAP(SSD)".to_string(),
             value: format!(
-                "{}{:.1}%{}",
+                "{}{:.0}%{}",
                 disk_swap_color,
                 disk_swap_percent,
                 Colors::RESET
