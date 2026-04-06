@@ -1,3 +1,4 @@
+use crate::constants::KERNEL_THREAD_PREFIX;
 use sysinfo::{Pid, System};
 
 #[derive(Clone)]
@@ -26,6 +27,7 @@ impl ProcessList {
         self.processes = sys
             .processes()
             .iter()
+            .filter(|(_, p)| !p.name().to_string_lossy().starts_with(KERNEL_THREAD_PREFIX))
             .map(|(pid, p)| {
                 let nice =
                     unsafe { libc::getpriority(libc::PRIO_PROCESS, pid.as_u32() as libc::id_t) };

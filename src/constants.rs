@@ -30,3 +30,5 @@ pub const LOG_TUI_FAIL: &str = "Failed to initialize TUI";
 pub const SLEEP_NORMAL: u64 = 50;
 pub const SLEEP_FAST: u64 = 10;
 pub const MSG_DURATION_SECS: u64 = 5;
+
+pub const KERNEL_THREAD_PREFIX: &str = "[";
