@@ -94,9 +94,13 @@ fn main() {
 
     let mut zram_stats: Option<zram_stats::ZramStats> = None;
     let mut frozen_procs: Vec<process_list::ProcessInfo> = Vec::new();
+    let mut error_msg: Option<String> = None;
+    let mut error_until: Option<std::time::Instant> = None;
 
     loop {
         let key = input.read_key(&logger);
+
+        let skip_render = (renice_mode.active || kill_mode.active) && key.is_none();
 
         if let Some(k) = key {
             let action = keys.handle_key(
@@ -150,23 +154,33 @@ fn main() {
                     if renice_mode.active && renice_mode.selection < frozen_procs.len() {
                         let proc = &frozen_procs[renice_mode.selection];
                         let is_root = unsafe { libc::geteuid() } == 0;
-                        if renice_mode.nice_value < 0 && !is_root {
-                            logger.info(&format!(
-                                "{} must be run as root to set negative nice value",
-                                APP_NAME
-                            ));
+                        if renice_mode.nice_value < 1 && !is_root {
+                            error_msg = Some("Failed to renice, permission error".to_string());
+                            error_until =
+                                Some(std::time::Instant::now() + std::time::Duration::from_secs(5));
+                            logger.info("Failed renice: need root for negative nice");
+                            renice_mode.deactivate();
                         } else {
-                            unsafe {
+                            let result = unsafe {
                                 libc::setpriority(
                                     libc::PRIO_PROCESS,
                                     proc.pid.as_u32() as libc::id_t,
                                     renice_mode.nice_value,
+                                )
+                            };
+                            if result != 0 {
+                                error_msg = Some("Failed to renice, permission error".to_string());
+                                error_until = Some(
+                                    std::time::Instant::now() + std::time::Duration::from_secs(5),
                                 );
+                                let errno_val = unsafe { *libc::__errno_location() };
+                                logger.info(&format!("setpriority failed: {}", errno_val));
+                            } else {
+                                logger.info(&format!(
+                                    "Reniced PID {} to {}",
+                                    proc.pid, renice_mode.nice_value
+                                ));
                             }
-                            logger.info(&format!(
-                                "Reniced PID {} to {}",
-                                proc.pid, renice_mode.nice_value
-                            ));
                             renice_mode.deactivate();
                         }
                     } else if kill_mode.active && kill_mode.selection < frozen_procs.len() {
@@ -267,7 +281,7 @@ fn main() {
         }
 
         if renice_mode.active || kill_mode.active {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(50));
             if key.is_none() {
                 continue;
             }
@@ -276,7 +290,12 @@ fn main() {
         if help_mode.active {
             ui.clear_screen();
             ui.print_help(refresh_interval, advanced, pause_mode.active);
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            continue;
+        }
+
+        if pause_mode.active {
+            std::thread::sleep(std::time::Duration::from_millis(50));
             continue;
         }
 
@@ -334,7 +353,23 @@ fn main() {
             kill_mode.active,
         );
 
+        if let Some(err) = &error_msg {
+            if let Some(until) = error_until {
+                if std::time::Instant::now() < until {
+                    ui.print_error_in_footer(err);
+                } else {
+                    error_msg = None;
+                    error_until = None;
+                }
+            }
+        }
+
         logger.log_timed("UI render", start);
+
+        if skip_render {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            continue;
+        }
 
         if pause_mode.active || renice_mode.active || kill_mode.active {
             std::thread::sleep(std::time::Duration::from_millis(100));

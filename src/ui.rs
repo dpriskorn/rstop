@@ -100,6 +100,20 @@ impl TerminalUI {
             Colors::BOLD, Colors::RED, Colors::RESET, sig_color, signal, Colors::RESET, Colors::CYAN, Colors::RESET, Colors::RESET);
     }
 
+    pub fn print_error(&self, message: &str) {
+        println!(
+            "\n{}{}Error: {}{}",
+            Colors::BOLD,
+            Colors::RED,
+            message,
+            Colors::RESET
+        );
+    }
+
+    pub fn print_error_in_footer(&self, message: &str) {
+        println!("{}{}", Colors::RED, message);
+    }
+
     pub fn print_help(&self, interval: f64, advanced: bool, paused: bool) {
         self.clear_screen();
         println!("{}{}HELP{}", Colors::BOLD, Colors::BLUE, Colors::RESET);
