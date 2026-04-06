@@ -3,7 +3,7 @@ use crate::process_list::ProcessInfo;
 use std::fmt;
 use tabled::{
     settings::object::Rows,
-    settings::{Format, Modify, Style},
+    settings::{Format, Modify, Remove, Style},
     Table, Tabled,
 };
 
@@ -102,6 +102,8 @@ impl ProcessTable {
 
         let mut table = Table::new(&all_rows);
         table.with(Style::empty());
+        table.with(Remove::row(Rows::first()));
+        table.with(Style::empty());
 
         if selected_row < all_rows.len() {
             let sel = selected_row + 1;
@@ -110,7 +112,21 @@ impl ProcessTable {
             })));
         }
 
-        println!("\n{}", table);
+        println!("");
+        print!(
+            "{}{}  {}  {}  {}  {}  {}  {}{}",
+            Colors::BOLD,
+            "M",
+            "PID",
+            "NI",
+            "CPU",
+            "MEM",
+            "TIME",
+            "NAME",
+            Colors::RESET
+        );
+        println!("");
+        println!("{}", table);
     }
 }
 
