@@ -131,13 +131,17 @@ fn main() {
                 KeyAction::ActivateRenice => {
                     renice_mode.activate();
                     kill_mode.deactivate();
-                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
+                    let all = process_list.top_by_cpu(30);
+                    let owned: Vec<ProcessInfo> = all.into_iter().cloned().collect();
+                    frozen_procs = process_filter.filter_owned(owned);
                     logger.info("Renice mode activated");
                 }
                 KeyAction::ActivateKill => {
                     kill_mode.activate();
                     renice_mode.deactivate();
-                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
+                    let all = process_list.top_by_cpu(30);
+                    let owned: Vec<ProcessInfo> = all.into_iter().cloned().collect();
+                    frozen_procs = process_filter.filter_owned(owned);
                     logger.info("Kill mode activated");
                 }
                 KeyAction::ExecuteAction => {
@@ -279,11 +283,13 @@ fn main() {
             ui.print_advanced_info();
         }
 
+        let all_procs = process_list.top_by_cpu(30);
+        let filtered_procs = process_filter.filter(&all_procs);
+
         let procs: Vec<&ProcessInfo> = if renice_mode.active || kill_mode.active {
             frozen_procs.iter().collect()
         } else {
-            let all_procs = process_list.top_by_cpu(30);
-            process_filter.filter_owned(all_procs)
+            filtered_procs.iter().collect()
         };
 
         ui.print_process_list(

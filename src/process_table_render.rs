@@ -1,5 +1,28 @@
 use crate::process_list::ProcessInfo;
+use std::fmt;
 use tabled::{settings::Style, Table, Tabled};
+
+struct MaybeEmpty<T>(Option<T>);
+
+impl<T: fmt::Display> fmt::Display for MaybeEmpty<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(v) => write!(f, "{}", v),
+            None => write!(f, " "),
+        }
+    }
+}
+
+#[derive(Tabled)]
+pub struct Row<'a> {
+    pub m: &'a str,
+    pub pid: MaybeEmpty<u32>,
+    pub ni: MaybeEmpty<i32>,
+    pub cpu: MaybeEmpty<u64>,
+    pub mem: MaybeEmpty<u64>,
+    pub time: MaybeEmpty<u64>,
+    pub name: String,
+}
 
 pub struct ProcessTable;
 
@@ -27,11 +50,11 @@ impl ProcessTable {
                 let time_min = p.time / 60;
                 Row {
                     m: if selected { ">" } else { " " },
-                    pid: p.pid.as_u32(),
-                    ni: p.nice,
-                    cpu: p.cpu.round() as u64,
-                    mem: mem_mb,
-                    time: time_min,
+                    pid: MaybeEmpty(Some(p.pid.as_u32())),
+                    ni: MaybeEmpty(Some(p.nice)),
+                    cpu: MaybeEmpty(Some(p.cpu.round() as u64)),
+                    mem: MaybeEmpty(Some(mem_mb)),
+                    time: MaybeEmpty(Some(time_min)),
                     name: if p.name.len() > 20 {
                         p.name.chars().take(20).collect()
                     } else {
@@ -46,12 +69,12 @@ impl ProcessTable {
         for _ in 0..empty_rows {
             all_rows.push(Row {
                 m: " ",
-                pid: 0,
-                ni: 0,
-                cpu: 0,
-                mem: 0,
-                time: 0,
-                name: "".to_string(),
+                pid: MaybeEmpty(None),
+                ni: MaybeEmpty(None),
+                cpu: MaybeEmpty(None),
+                mem: MaybeEmpty(None),
+                time: MaybeEmpty(None),
+                name: String::new(),
             });
         }
 
@@ -61,17 +84,6 @@ impl ProcessTable {
             println!("\n{}", table);
         }
     }
-}
-
-#[derive(Tabled)]
-pub struct Row<'a> {
-    pub m: &'a str,
-    pub pid: u32,
-    pub ni: i32,
-    pub cpu: u64,
-    pub mem: u64,
-    pub time: u64,
-    pub name: String,
 }
 
 impl Default for ProcessTable {

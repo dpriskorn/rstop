@@ -21,10 +21,18 @@ impl ProcessFilter {
         self.min_cpu = min_cpu;
     }
 
-    pub fn filter_owned<'a>(&self, processes: Vec<&'a ProcessInfo>) -> Vec<&'a ProcessInfo> {
+    pub fn filter_owned(&self, processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
         processes
             .into_iter()
             .filter(|p| p.cpu >= self.min_cpu && !self.should_exclude(&p.name))
+            .collect()
+    }
+
+    pub fn filter<'a>(&self, processes: &'a [&ProcessInfo]) -> Vec<ProcessInfo> {
+        processes
+            .iter()
+            .filter(|p| p.cpu >= self.min_cpu && !self.should_exclude(&p.name))
+            .map(|p| (*p).clone())
             .collect()
     }
 
@@ -84,7 +92,7 @@ mod tests {
         let p1 = make_process("HeapHelper", 100.0);
         let p2 = make_process("other", 60.0);
         let p3 = make_process("test", 40.0);
-        let processes: Vec<&ProcessInfo> = vec![&p1, &p2, &p3];
+        let processes: Vec<ProcessInfo> = vec![p1, p2, p3];
         let filtered = filter.filter_owned(processes);
 
         assert_eq!(filtered.len(), 1);
