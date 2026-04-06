@@ -3,6 +3,7 @@ use std::time::Instant;
 
 mod color;
 mod input;
+mod keys;
 mod logger;
 mod modes;
 mod overview;
@@ -13,6 +14,7 @@ mod ui;
 mod zram_stats;
 
 use input::InputHandler;
+use keys::{KeyAction, Keys};
 use logger::Logger;
 use modes::kill::KillMode;
 use modes::renice::ReniceMode;
@@ -49,6 +51,7 @@ fn main() {
     let original_termios = enable_raw_mode();
 
     let mut input = InputHandler::new();
+    let keys = Keys::new();
     let mut monitor = SystemMonitor::new();
     let mut process_list = ProcessList::new();
     let zram_reader = ZramReader::new();
@@ -78,76 +81,41 @@ fn main() {
         let key = input.read_key();
 
         if let Some(k) = key {
-            logger.debug(&format!("Key pressed: {}", k));
+            let action = keys.handle_key(
+                key,
+                renice_mode.active,
+                kill_mode.active,
+                frozen_procs.len(),
+                &logger,
+            );
 
-            match k {
-                b'p' | b'P' => {
+            match action {
+                KeyAction::Quit => break,
+                KeyAction::TogglePause => {
                     paused = !paused;
                     logger.info(&format!("Pause toggled: {}", paused));
                 }
-                b'q' | b'Q' => {
-                    break;
-                }
-                0x1b => {
-                    if renice_mode.active || kill_mode.active {
-                        renice_mode.deactivate();
-                        kill_mode.deactivate();
-                    } else {
-                        break;
-                    }
-                }
-                b'a' | b'A' => {
+                KeyAction::ToggleAdvanced => {
                     advanced = !advanced;
                     logger.info(&format!("Advanced toggled: {}", advanced));
                 }
-                b'h' | b'H' => {
+                KeyAction::ToggleHelp => {
                     help = !help;
                     logger.info(&format!("Help toggled: {}", help));
                 }
-                b'r' | b'R' => {
+                KeyAction::ActivateRenice => {
                     renice_mode.activate();
                     kill_mode.deactivate();
                     frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
                     logger.info("Renice mode activated");
                 }
-                b'k' | b'K' => {
+                KeyAction::ActivateKill => {
                     kill_mode.activate();
                     renice_mode.deactivate();
                     frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
                     logger.info("Kill mode activated");
                 }
-                b'q' | b'Q' => {
-                    break;
-                }
-                0x1b => {
-                    if renice_mode.active || kill_mode.active {
-                        renice_mode.deactivate();
-                        kill_mode.deactivate();
-                    } else {
-                        break;
-                    }
-                }
-                b'a' => {
-                    advanced = !advanced;
-                    logger.info(&format!("Advanced toggled: {}", advanced));
-                }
-                b'h' => {
-                    help = !help;
-                    logger.info(&format!("Help toggled: {}", help));
-                }
-                b'r' => {
-                    renice_mode.activate();
-                    kill_mode.deactivate();
-                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
-                    logger.info("Renice mode activated");
-                }
-                b'k' => {
-                    kill_mode.activate();
-                    renice_mode.deactivate();
-                    frozen_procs = process_list.top_by_cpu(10).into_iter().cloned().collect();
-                    logger.info("Kill mode activated");
-                }
-                b'\n' | b'\r' => {
+                KeyAction::ExecuteAction => {
                     if renice_mode.active && renice_mode.selection < frozen_procs.len() {
                         let proc = &frozen_procs[renice_mode.selection];
                         unsafe {
@@ -177,14 +145,14 @@ fn main() {
                         kill_mode.deactivate();
                     }
                 }
-                0xF0 => {
+                KeyAction::NavigateUp => {
                     if renice_mode.active {
                         renice_mode.selection = renice_mode.selection.saturating_sub(1);
                     } else if kill_mode.active {
                         kill_mode.selection = kill_mode.selection.saturating_sub(1);
                     }
                 }
-                0xF1 => {
+                KeyAction::NavigateDown => {
                     if renice_mode.active {
                         renice_mode.selection =
                             (renice_mode.selection + 1).min(frozen_procs.len().saturating_sub(1));
@@ -193,21 +161,27 @@ fn main() {
                             (kill_mode.selection + 1).min(frozen_procs.len().saturating_sub(1));
                     }
                 }
-                0xF3 => {
+                KeyAction::NiceValueUp => {
                     if renice_mode.active {
                         renice_mode.nice_value = (renice_mode.nice_value + 1).min(19);
-                    } else if kill_mode.active {
+                    }
+                }
+                KeyAction::NiceValueDown => {
+                    if renice_mode.active {
+                        renice_mode.nice_value = (renice_mode.nice_value - 1).max(-20);
+                    }
+                }
+                KeyAction::Signal9 => {
+                    if kill_mode.active {
                         kill_mode.signal = 9;
                     }
                 }
-                0xF2 => {
-                    if renice_mode.active {
-                        renice_mode.nice_value = (renice_mode.nice_value - 1).max(-20);
-                    } else if kill_mode.active {
+                KeyAction::Signal15 => {
+                    if kill_mode.active {
                         kill_mode.signal = 15;
                     }
                 }
-                _ => {}
+                KeyAction::None => {}
             }
         }
 
