@@ -16,12 +16,14 @@ The application should be refactored to use OOP principles with separate files:
 - `src/process_list.rs` - Process listing with nice values
 - `src/zram_stats.rs` - ZRAM statistics
 - `src/ui.rs` - Terminal UI rendering
+- `src/overview.rs` - System overview/header rendering
+- `src/color.rs` - Color scheme and ANSI codes
+- `src/process_table_render.rs` - Process table rendering using tabled crate
 - `src/modes/renice.rs` - Renice mode logic
 - `src/modes/kill.rs` - Kill mode logic
 - `src/modes/pause.rs` - Pause mode logic
 - `src/modes/help.rs` - Help mode logic
 - `src/input.rs` - Keyboard input handling
-- `src/process_table.rs` - Process table rendering using tabled crate
 
 ### Architecture Rules
 
@@ -87,3 +89,4 @@ let cpu_color = colors.color_for_percent(cpu, threshold);
 - Test core functionality like process sorting, health calculations, nice value handling
 - Use Rust's built-in `#[test]` attribute
 - Run tests with `cargo test`
+- **Coverage target: >80%** - Ensure most modules have tests

@@ -21,10 +21,10 @@ pub struct ColorScheme {
     pub zram_good: f64,
     pub load_high: f64,
     pub load_medium: f64,
-    #[allow(dead_code)]
-    pub cpu_high: f32,
-    #[allow(dead_code)]
-    pub swap_high: f32,
+    pub cpu_excellent: f32,
+    pub cpu_good: f32,
+    pub swap_excellent: f32,
+    pub swap_good: f32,
 }
 
 impl ColorScheme {
@@ -37,10 +37,32 @@ impl ColorScheme {
             zram_good: 2.0,
             load_high: 1.5,
             load_medium: 1.0,
-            cpu_high: 80.0,
-            swap_high: 50.0,
+            cpu_excellent: 50.0,
+            cpu_good: 80.0,
+            swap_excellent: 20.0,
+            swap_good: 50.0,
         };
         &INSTANCE
+    }
+
+    pub fn color_for_cpu(&self, value: f32) -> &'static str {
+        if value <= self.cpu_excellent {
+            Colors::GREEN
+        } else if value <= self.cpu_good {
+            Colors::YELLOW
+        } else {
+            Colors::RED
+        }
+    }
+
+    pub fn color_for_swap(&self, value: f32) -> &'static str {
+        if value <= self.swap_excellent {
+            Colors::GREEN
+        } else if value <= self.swap_good {
+            Colors::YELLOW
+        } else {
+            Colors::RED
+        }
     }
 
     pub fn color_for_health(&self, score: i32) -> &'static str {

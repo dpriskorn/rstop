@@ -5,6 +5,7 @@ mod color;
 mod input;
 mod logger;
 mod modes;
+mod overview;
 mod process_list;
 mod process_table_render;
 mod system_monitor;

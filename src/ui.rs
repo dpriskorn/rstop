@@ -1,4 +1,5 @@
-use crate::color::{ColorScheme, Colors};
+use crate::color::Colors;
+use crate::overview::OverviewTable;
 use crate::process_list::ProcessInfo;
 use crate::process_table_render::ProcessTable;
 
@@ -27,78 +28,19 @@ impl TerminalUI {
         zram_stats: Option<&crate::zram_stats::ZramStats>,
         zram_reader: &crate::zram_stats::ZramReader,
     ) {
-        let colors = ColorScheme::global();
-        let cpu_color = colors.color_for_percent(cpu, 80.0);
-        let swap_color = colors.color_for_percent(swap_percent, 50.0);
-        let load_color = colors.color_for_load(load1, cores);
-        let load5_color = colors.color_for_load(load5, cores);
-        let load10_color = colors.color_for_load(load10, cores);
-        let health_color = colors.color_for_health(health);
-
-        println!(
-            "{}{}HEALTH:{} {}/100 [{}{}{}]",
-            Colors::BOLD,
-            health_color,
-            Colors::RESET,
-            health,
-            health_color,
-            health_label,
-            Colors::RESET
-        );
-        println!(
-            "{}{}CPU:{}   {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            cpu_color,
+        let overview = OverviewTable::new();
+        overview.print(
             cpu,
-            Colors::RESET
-        );
-        println!(
-            "{}{}RAM:{}   {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            Colors::WHITE,
             mem_percent,
-            Colors::RESET
-        );
-
-        if let Some(z) = zram_stats {
-            let ratio = zram_reader.compression_ratio(z);
-            let ratio_color = colors.color_for_zram(ratio);
-            println!(
-                "{}{}ZRAM:{} {}{:.2}x{}",
-                Colors::BOLD,
-                Colors::CYAN,
-                Colors::RESET,
-                ratio_color,
-                ratio,
-                Colors::RESET
-            );
-        }
-
-        println!(
-            "{}{}SWAP:{}  {}{:.1}%{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            swap_color,
             swap_percent,
-            Colors::RESET
-        );
-        println!(
-            "{}{}LOAD:{}  {}{:.2}  {}{:.2}  {}{:.2}{}",
-            Colors::BOLD,
-            Colors::CYAN,
-            Colors::RESET,
-            load_color,
             load1,
-            load5_color,
             load5,
-            load10_color,
             load10,
-            Colors::RESET
+            cores,
+            health,
+            health_label,
+            zram_stats,
+            zram_reader,
         );
     }
 
@@ -255,6 +197,7 @@ impl Default for TerminalUI {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::color::{ColorScheme, Colors};
 
     #[test]
     fn test_colors_exist() {
