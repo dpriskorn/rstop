@@ -147,7 +147,15 @@ fn render_process_table(f: &mut Frame, area: Rect, processes: &[ProcessInfo], st
         .enumerate()
         .map(|(i, p)| {
             let mem_mb = (p.mem as f64 / 1024.0 / 1024.0).round() as u64;
-            let time_min = p.time / 60;
+            let cpu_time = p.time;
+            let hours = cpu_time / 3600;
+            let mins = (cpu_time % 3600) / 60;
+            let secs = cpu_time % 60;
+            let time_str = if hours > 0 {
+                format!("{}:{:02}:{:02}", hours, mins, secs)
+            } else {
+                format!("{}:{:02}", mins, secs)
+            };
             let name = if p.name.len() > 20 {
                 p.name.chars().take(20).collect()
             } else {
@@ -173,7 +181,7 @@ fn render_process_table(f: &mut Frame, area: Rect, processes: &[ProcessInfo], st
                 p.nice.to_string(),
                 format!("{:.0}", p.cpu),
                 mem_mb.to_string(),
-                time_min.to_string(),
+                time_str,
                 name,
             ])
             .style(style)

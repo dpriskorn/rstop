@@ -1,3 +1,5 @@
+use procfs::process::Process;
+use procfs::ticks_per_second;
 use sysinfo::{Pid, System};
 
 #[derive(Clone)]
@@ -57,17 +59,31 @@ impl ProcessList {
                         passwd
                     })
                     .unwrap_or_else(|| "?".to_string());
+
+                let cpu_time = Self::get_cpu_time(pid.as_u32() as i32);
+
                 ProcessInfo {
                     pid: *pid,
                     name: p.name().to_string_lossy().into_owned(),
                     user,
                     cpu: p.cpu_usage(),
                     mem: p.memory(),
-                    time: p.start_time(),
+                    time: cpu_time,
                     nice,
                 }
             })
             .collect();
+    }
+
+    fn get_cpu_time(pid: i32) -> u64 {
+        if let Ok(proc) = Process::new(pid) {
+            if let Ok(stat) = proc.stat() {
+                let total_ticks =
+                    stat.utime + stat.stime + (stat.cutime as u64) + (stat.cstime as u64);
+                return total_ticks / ticks_per_second() as u64;
+            }
+        }
+        0
     }
 
     pub fn top_by_cpu(&self, count: usize) -> Vec<&ProcessInfo> {
