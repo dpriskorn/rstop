@@ -1,6 +1,9 @@
 use crate::color::{ColorScheme, Colors};
 use crate::zram_stats::{ZramReader, ZramStats};
-use tabled::{settings::Style, Table, Tabled};
+use tabled::{
+    settings::{object::Rows, Remove, Style},
+    Table, Tabled,
+};
 
 #[derive(Tabled)]
 pub struct OverviewRow {
@@ -65,7 +68,7 @@ impl OverviewTable {
             let ratio_color = colors.color_for_zram(ratio);
             rows.push(OverviewRow {
                 label: "ZRAM".to_string(),
-                value: format!("{}{:.2}x{}", ratio_color, ratio, Colors::RESET),
+                value: format!("{}{:.1}x{}", ratio_color, ratio, Colors::RESET),
             });
         }
 
@@ -102,6 +105,7 @@ impl OverviewTable {
         println!("");
         let mut table = Table::new(&rows);
         table.with(Style::empty());
+        table.with(Remove::row(Rows::first()));
         println!("{}", table);
     }
 }
