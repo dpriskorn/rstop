@@ -75,12 +75,12 @@ pub fn build_header_text(
                 format!(
                     "zram_ratio={}",
                     if health_factors.zram_penalty > 0 {
-                        -health_factors.zram_penalty
+                        format!("+{}", health_factors.zram_penalty)
                     } else {
-                        health_factors.zram_penalty
+                        health_factors.zram_penalty.to_string()
                     }
                 ),
-                Style::default().fg(if health_factors.zram_penalty == 0 {
+                Style::default().fg(if health_factors.zram_penalty >= 0 {
                     Color::Green
                 } else {
                     Color::Red
