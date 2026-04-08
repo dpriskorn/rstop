@@ -9,7 +9,8 @@ A real-time system monitor for Linux with zram statistics.
 - Load average (1m, 5m, 10m)
 - ZRAM compression ratio statistics
 - Health score based on system performance
-- Renice mode to kill top CPU-consuming processes
+- Renice mode to kill top CPU-consuming processes with selection (no more typing PIDs!)
+- Config file with options to hide based on minimum CPU/Memory usage to prevent clutter
 
 ## Controls
 
