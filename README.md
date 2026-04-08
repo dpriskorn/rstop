@@ -1,6 +1,7 @@
 # RTOP
-
 A real-time system monitor for Linux with zram statistics.
+
+<img width="351" height="357" alt="image" src="https://github.com/user-attachments/assets/0ae7c081-414e-4c1b-8953-bc7a160f4e74" />
 
 ## Features
 
