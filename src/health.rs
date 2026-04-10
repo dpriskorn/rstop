@@ -38,6 +38,8 @@ impl HealthFactors {
 
         let zram_bonus = if zram_swap_percent > 0.0 && zram_swap_percent < 60.0 {
             50
+        } else if zram_swap_percent >= 60.0 && zram_swap_percent <= 90.0 {
+            25
         } else {
             0
         };
@@ -154,8 +156,14 @@ mod tests {
     }
 
     #[test]
+    fn test_zram_bonus_mid_range() {
+        let factors = HealthFactors::calculate(3.0, 1.0, 2.0, 4, 75.0);
+        assert_eq!(factors.zram_bonus, 25);
+    }
+
+    #[test]
     fn test_zram_bonus_not_applied_when_high() {
-        let factors = HealthFactors::calculate(3.0, 1.0, 2.0, 4, 80.0);
+        let factors = HealthFactors::calculate(3.0, 1.0, 2.0, 4, 95.0);
         assert_eq!(factors.zram_bonus, 0);
     }
 }
