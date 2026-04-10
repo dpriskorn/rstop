@@ -86,22 +86,23 @@ pub fn build_header_text(
                     Color::Red
                 }),
             ),
-        ]),
-        Line::from(vec![Span::styled(
-            format!(
-                "zram_bonus={}",
-                if health_factors.zram_bonus > 0 {
-                    format!("+{}", health_factors.zram_bonus)
+            Span::raw(" "),
+            Span::styled(
+                format!(
+                    "zram_bonus={}",
+                    if health_factors.zram_bonus > 0 {
+                        format!("+{}", health_factors.zram_bonus)
+                    } else {
+                        health_factors.zram_bonus.to_string()
+                    }
+                ),
+                Style::default().fg(if health_factors.zram_bonus > 0 {
+                    Color::Green
                 } else {
-                    health_factors.zram_bonus.to_string()
-                }
+                    Color::DarkGray
+                }),
             ),
-            Style::default().fg(if health_factors.zram_bonus > 0 {
-                Color::Green
-            } else {
-                Color::DarkGray
-            }),
-        )]),
+        ]),
         Line::from(vec![
             Span::raw(" CPU         "),
             Span::styled(
