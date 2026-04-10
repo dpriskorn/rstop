@@ -81,6 +81,7 @@ impl App {
                 swap_penalty: 0,
                 load_penalty: 0,
                 zram_penalty: 0,
+                zram_bonus: 0,
             },
             zram_stats: None,
             frozen_procs: Vec::new(),
@@ -313,12 +314,22 @@ impl App {
             .map(|z| self.zram_reader.compression_ratio(z))
             .unwrap_or(0.0);
 
-        let (h, label) =
-            HealthCalculator::calculate(self.disk_swap_percent, self.load1, zram_ratio, self.cores);
+        let (h, label) = HealthCalculator::calculate(
+            self.disk_swap_percent,
+            self.load1,
+            zram_ratio,
+            self.cores,
+            self.zram_swap_percent,
+        );
         self.health = h;
         self.health_label = label;
-        self.health_factors =
-            HealthFactors::calculate(self.disk_swap_percent, self.load1, zram_ratio, self.cores);
+        self.health_factors = HealthFactors::calculate(
+            self.disk_swap_percent,
+            self.load1,
+            zram_ratio,
+            self.cores,
+            self.zram_swap_percent,
+        );
 
         *last_refresh = Instant::now();
     }

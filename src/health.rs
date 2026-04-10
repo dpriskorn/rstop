@@ -4,6 +4,7 @@ pub struct HealthFactors {
     pub swap_penalty: i32,
     pub load_penalty: i32,
     pub zram_penalty: i32,
+    pub zram_bonus: i32,
 }
 
 impl HealthFactors {
@@ -12,6 +13,7 @@ impl HealthFactors {
         load1: f64,
         zram_ratio: f64,
         cores: usize,
+        zram_swap_percent: f32,
     ) -> HealthFactors {
         let swap_penalty = if disk_swap_percent > 1.0 { 50 } else { 0 };
 
@@ -34,11 +36,18 @@ impl HealthFactors {
             0
         };
 
+        let zram_bonus = if zram_swap_percent > 0.0 && zram_swap_percent < 60.0 {
+            50
+        } else {
+            0
+        };
+
         HealthFactors {
             mem_penalty: 0,
             swap_penalty,
             load_penalty,
             zram_penalty,
+            zram_bonus,
         }
     }
 }
@@ -51,6 +60,7 @@ impl HealthCalculator {
         load1: f64,
         zram_ratio: f64,
         cores: usize,
+        zram_swap_percent: f32,
     ) -> (i32, &'static str) {
         let mut score = 100;
 
@@ -75,6 +85,10 @@ impl HealthCalculator {
             }
         }
 
+        if zram_swap_percent > 0.0 && zram_swap_percent < 60.0 {
+            score += 50;
+        }
+
         let score = score.clamp(0, 100);
         let label = if score >= 85 {
             "EXCELLENT"
@@ -96,40 +110,52 @@ mod tests {
 
     #[test]
     fn test_health_calculator_excellent() {
-        let (score, label) = HealthCalculator::calculate(0.0, 1.0, 3.5, 4);
+        let (score, label) = HealthCalculator::calculate(0.0, 1.0, 3.5, 4, 70.0);
         assert!(score >= 85, "Score: {}", score);
         assert_eq!(label, "EXCELLENT");
     }
 
     #[test]
     fn test_health_calculator_stressed() {
-        let (score, _label) = HealthCalculator::calculate(10.0, 10.0, 1.2, 2);
+        let (score, _label) = HealthCalculator::calculate(10.0, 10.0, 1.2, 2, 80.0);
         assert!(score < 50);
     }
 
     #[test]
     fn test_health_calculator_good() {
-        let (score, _label) = HealthCalculator::calculate(0.0, 5.0, 1.4, 4);
+        let (score, _label) = HealthCalculator::calculate(0.0, 5.0, 1.4, 4, 70.0);
         assert!(score >= 70, "Score should be >= 70, got {}", score);
         assert!(score <= 84, "Score should be <= 84, got {}", score);
     }
 
     #[test]
     fn test_health_calculator_ok() {
-        let (score, _label) = HealthCalculator::calculate(0.0, 7.0, 1.4, 4);
+        let (score, _label) = HealthCalculator::calculate(0.0, 7.0, 1.4, 4, 70.0);
         assert!(score >= 50, "Score should be >= 50, got {}", score);
         assert!(score < 70, "Score should be < 70, got {}", score);
     }
 
     #[test]
     fn test_health_factors_disk_swap() {
-        let factors = HealthFactors::calculate(10.0, 1.0, 2.0, 4);
+        let factors = HealthFactors::calculate(10.0, 1.0, 2.0, 4, 80.0);
         assert_eq!(factors.swap_penalty, 50);
     }
 
     #[test]
     fn test_health_factors_high_load() {
-        let factors = HealthFactors::calculate(0.0, 6.5, 2.0, 4);
+        let factors = HealthFactors::calculate(0.0, 6.5, 2.0, 4, 80.0);
         assert_eq!(factors.load_penalty, 25);
+    }
+
+    #[test]
+    fn test_zram_bonus_applied() {
+        let factors = HealthFactors::calculate(3.0, 1.0, 2.0, 4, 53.0);
+        assert_eq!(factors.zram_bonus, 50);
+    }
+
+    #[test]
+    fn test_zram_bonus_not_applied_when_high() {
+        let factors = HealthFactors::calculate(3.0, 1.0, 2.0, 4, 80.0);
+        assert_eq!(factors.zram_bonus, 0);
     }
 }
